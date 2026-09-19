@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.dart_tool/
+**/build/
+**/.idea/
+**/*.user
+**/appsettings.Local.json
+.env
+secrets/
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+**/firebase-adminsdk.json
+**/packages.lock.json
+**/pubspec.lock

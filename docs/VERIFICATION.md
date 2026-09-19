@@ -1,0 +1,23 @@
+# Verification — 2026-09-20
+
+Executed on Windows with .NET SDK 10.0.401, the installed Flutter/Dart SDK, Android SDK, and a local MongoDB server. Existing TMS application files were not modified. The Android call notification plugin was copied into Standalone and adapted there. No production credentials were copied.
+
+## Passed
+
+- ASP.NET Core API build and Release publish, with zero warnings/errors.
+- **11 backend integration tests** using real MongoDB and ASP.NET TestServer: anonymous access rejection; concurrent direct-chat creation and message UUID deduplication; membership/reply scope; stable history pages and literal search; group-owner permissions/removal/mentions; monotonic reads and private history clearing; upload retries and protected downloads; call admission/participant checks; actual SignalR delivery to recipient and sender's other session; call expiry and termination after membership changes; native-decline authorization, membership, device revocation, and already-answered call protection.
+- **18 Flutter tests**: persistent uncertain sends and late-ack merging; account/conversation/reply draft isolation; offline deletions; conversation-list/unread filtering at 320px and 1024px; composer/reply controls at 320px, 390px and 1024px; reading-position preservation and the new-message button; two-step group naming/Back/minimum selection; separate broadcast composition and stable UUID retry of failed recipients; keyboard mention selection; group-details retry/empty state; selected conversation at 390px, 900px and 1024px; incoming and active call controls at 320px.
+- **14 Android native unit tests**: CallStyle notification properties/actions/timeout, stale Answer, persisted Decline, HTTP delivery, retry limits, and offline WorkManager behavior. Run from `Flutter/android` with `gradlew :native_call_notifications:testDebugUnitTest`.
+- Flutter static analysis: no issues.
+- Twelve rendered screen baselines cover conversation list/thread, selected responsive layout, group naming, broadcast retry, and incoming/active calls. Baselines live in `Flutter/test/goldens`. Roboto and Material Icons are loaded explicitly; sample times use local time so results do not depend on workstation time zone. Visual inspection compared the Flutter screens with the current project's CSS, markup and chat preview images; golden tests protect the reviewed Flutter rendering, not pixel identity with browser rendering.
+- Android debug APK compilation. Output: `Flutter/build/app/outputs/flutter-apk/app-debug.apk` (a development build; configure Firebase before sign-in).
+- Docker Compose base configuration validation with a placeholder project ID. Containers were not deployed.
+
+## Not exercised here
+
+- Live Firebase authentication/FCM/APNs delivery: new project configuration and credentials are intentionally not included. Integration tests replace authentication only inside the test assembly.
+- Physical Android/iOS permissions, background push behavior, notification sound, camera/microphone, Bluetooth routing, and WebRTC media through NAT/TURN.
+- iOS compilation/signing: requires macOS/Xcode. iOS target, permission strings, background modes and push entitlement are included, but Apple/Firebase setup is still necessary.
+- Android lock-screen/cold-start Answer/Decline, cancellation ordering and real ringtone/DND behavior still need physical-device smoke tests despite the passing native tests. The ported CallStyle service does not automatically launch full-screen. iOS uses standard notifications without CallKit/PushKit. Calls support up to six participants, and server coordination supports one API instance.
+
+Before distribution, configure the standalone Firebase project, sign release builds with your own keys, set a reachable HTTPS API, supply an appropriate TURN deployment, and run the two-device scenarios above. See the README's deployment constraints for data retention and scaling behavior.

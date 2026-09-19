@@ -1,0 +1,27 @@
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - chat-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  api:
+    build: ./Web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5080:8080"
+    environment:
+      Mongo__ConnectionString: mongodb://mongo:27017
+      Mongo__Database: standalone_chat
+      Firebase__ProjectId: ${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID in .env}
+      Firebase__EnablePush: "false"
+      ASPNETCORE_URLS: http://+:8080
+    depends_on:
+      mongo:
+        condition: service_healthy
+volumes:
+  chat-data:

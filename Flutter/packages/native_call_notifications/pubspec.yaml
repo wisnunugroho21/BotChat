@@ -1,0 +1,15 @@
+name: native_call_notifications
+description: Android incoming call notifications for TMS.
+version: 0.0.1
+publish_to: none
+environment:
+  sdk: ^3.11.4
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.grahatrans.notifications
+        pluginClass: NativeCallNotificationsPlugin

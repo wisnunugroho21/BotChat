@@ -1,0 +1,32 @@
+group 'com.grahatrans.notifications'
+version '1.0'
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.grahatrans.notifications'
+    compileSdk 36
+    defaultConfig { minSdk 24 }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions { jvmTarget = '21' }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+            if (project.hasProperty('robolectricSdkDir')) {
+                systemProperty 'robolectric.dependency.dir', project.property('robolectricSdkDir')
+            }
+        }
+    }
+}
+dependencies {
+    implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'androidx.work:work-runtime:2.11.2'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+    testImplementation 'androidx.work:work-testing:2.11.2'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+}

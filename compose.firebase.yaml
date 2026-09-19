@@ -1,0 +1,11 @@
+services:
+  api:
+    environment:
+      Firebase__EnablePush: "true"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase.json
+    secrets:
+      - source: firebase
+        target: firebase.json
+secrets:
+  firebase:
+    file: ${FIREBASE_ADMIN_CREDENTIALS:?Set an absolute path to your standalone Firebase service-account file}
