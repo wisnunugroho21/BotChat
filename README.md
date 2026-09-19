@@ -1,4 +1,4 @@
-# TMS Connect — standalone chat
+# Bot Chat — standalone chat
 
 A native Flutter mobile application and an independent ASP.NET Core 10 API. MongoDB stores accounts, conversations, messages, read receipts, devices, calls, and private attachments (GridFS). Firebase Authentication supplies the API identity; Firebase Cloud Messaging delivers background notifications. SignalR synchronizes messages, typing, presence, read receipts, and WebRTC signaling.
 
