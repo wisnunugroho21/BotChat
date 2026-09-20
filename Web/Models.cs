@@ -52,6 +52,10 @@ public sealed class ReadState
     public DateTime ReadAt { get; set; }
     public DateTime ClearedAt { get; set; }
     public bool Hidden { get; set; }
+    public bool Pinned { get; set; }
+    public bool Muted { get; set; }
+    public bool Archived { get; set; }
+    public List<string> PinnedMessageIds { get; set; } = [];
 }
 public sealed class Device
 {
@@ -82,6 +86,8 @@ public sealed record SendInput(string ClientMessageId, string Text, string? Repl
 public sealed record BroadcastInput(List<string> Recipients, string ClientMessageId, string Text);
 public sealed record TokenInput(string Token);
 public sealed record CallInput(bool Video);
+public sealed record ConversationPreferences(bool? Pinned = null, bool? Muted = null, bool? Archived = null);
+public sealed record PinInput(bool Pinned);
 public sealed record Page<T>(List<T> Items, string? NextCursor);
 public sealed class ChatException(int status, string message) : Exception(message)
 {

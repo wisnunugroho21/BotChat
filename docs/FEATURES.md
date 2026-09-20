@@ -21,6 +21,8 @@ Reference sources: `TMS/Website/Areas/Chat/Views/Chat/Chat.cshtml`, `TMS/Website
 | Menus | Conversation and list Refresh, Mark all read, Broadcast message, search, call history, group details/edit, clear/delete/leave actions |
 | Control and surface styling | Shared 12px rounded controls, compact 14px body / 18px secondary-screen heading typography, blue focus borders, white icon menus with red destructive actions, rounded selected-contact cards, consistent avatar colors in selected chips, and an inset blue-accent reply panel; Send and active recording retain blue backgrounds |
 | Search recovery | Clear controls for conversation and people searches; empty search resets the filter, unread empty state returns to all conversations, and short conversation lists support pull-to-refresh |
+| Pins, mute and archive | Long-press a conversation or use its options menu to pin/unpin, mute/unmute messages, or archive/unarchive. Pinned conversations sort first. Archived chats have a separate filter and stay archived when new messages arrive. Mute suppresses message push and foreground banners (including mentions); calls still ring. Settings are private to each account and sync through MongoDB/SignalR. |
+| Pinned messages | Message options include Pin for me/Unpin for me for text and attachments. The header pin bar and Pinned messages menu open a private list with previews, jump-to-message, refresh, and unpin. Up to 100 messages per conversation; deleted or privately cleared messages are removed from pins. |
 | Calls | Navy gradient voice surface, incoming/active controls, elapsed timer, group participant status, remote video with local inset; native WebRTC mesh, microphone/camera/speaker controls, server busy checks and refreshed call history |
 | Notifications | Firebase background push/deep links and SignalR foreground updates; original Android CallStyle ringing service ported under Flutter/packages, queued Answer and background WorkManager Decline; matching cancellation and 40-second timeout |
 
@@ -29,3 +31,11 @@ Intentional differences: native Flutter widgets replace the WebView/DOM implemen
 REST endpoints are rooted at `/api`; the hub is `/hubs/chat`. All account/data routes require a Firebase ID token. IDs in payloads are strings. Event names: `MessageReceived`, `MessageDeleted`, `MessagesRead`, `ConversationsChanged`, `PresenceChanged`, `Typing`, `CallChanged`, `CallSignal`. Hub invocations: `Typing`, `SendMessage`, `Signal`. REST and hub sends share the same message service and idempotency index.
 
 The separate native-decline endpoint accepts a registered device token exclusively to decline that device owner's outstanding call invitation. It does not expose account or chat data. Its authorization, revocation, membership, and stale-action behavior are covered by backend integration tests.
+
+Organization endpoints (all require Firebase authentication and current conversation membership):
+
+- `PATCH /api/conversations/{id}/preferences` accepts optional `pinned`, `muted`, and `archived` booleans; omitted fields are preserved.
+- `GET /api/conversations/{id}/pins` returns the current user's visible pinned messages.
+- `PUT /api/conversations/{id}/messages/{messageId}/pin` accepts `{ "pinned": true }` or `{ "pinned": false }` and is idempotent.
+
+Conversation summaries expose only the requesting user's organization fields. Shared read receipts contain user ID, conversation ID and read time, without private preferences. Archive and mute do not delete history or change unread/read state.

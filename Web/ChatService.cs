@@ -71,10 +71,12 @@ public sealed class ChatService(ChatStore db, Notifications notifications)
         var last = await db.Messages.Find(x => x.ConversationId == c.Id && !x.Deleted && x.CreatedAt > state.ClearedAt).SortByDescending(x => x.Id).FirstOrDefaultAsync();
         var peers = await db.Profiles.Find(x => c.Members.Contains(x.Id)).ToListAsync();
         var reads = await db.Reads.Find(x => x.ConversationId == c.Id).ToListAsync();
+        var pins = await db.Messages.Find(x => x.ConversationId == c.Id && state.PinnedMessageIds.Contains(x.Id) && !x.Deleted && x.CreatedAt > state.ClearedAt).Project(x => x.Id).ToListAsync();
         var unread = await db.Messages.CountDocumentsAsync(x => x.ConversationId == c.Id && !x.Deleted && x.SenderId != uid && x.CreatedAt > state.ReadAt && x.CreatedAt > state.ClearedAt);
         return new { c.Id, c.Type, Name = c.Type == "Group" ? c.Name : peers.FirstOrDefault(x => x.Id != uid)?.Name ?? "Unknown contact",
             c.Owner, c.Members, c.Revision, Profiles = peers, LastMessage = last, Unread = unread,
-            Hidden = state.Hidden && (last is null || last.CreatedAt <= state.ClearedAt), Reads = reads };
+            Hidden = state.Hidden && (last is null || last.CreatedAt <= state.ClearedAt), state.Pinned, state.Muted, state.Archived, PinnedMessageIds = pins,
+            Reads = reads.Select(x => new { x.UserId, x.ConversationId, x.ReadAt }) };
     }
     public async Task<List<object>> List(string uid)
     {
@@ -126,6 +128,36 @@ public sealed class ChatService(ChatStore db, Notifications notifications)
     }
 
     public Task<ReadState> State(string uid, string id) => GetState(uid, id);
+    public async Task Preferences(string uid, string id, ConversationPreferences input)
+    {
+        await Member(uid, id);
+        var u = Builders<ReadState>.Update.SetOnInsert(x => x.UserId, uid).SetOnInsert(x => x.ConversationId, id);
+        if (input.Pinned is bool pinned) u = u.Set(x => x.Pinned, pinned);
+        if (input.Muted is bool muted) u = u.Set(x => x.Muted, muted);
+        if (input.Archived is bool archived) u = u.Set(x => x.Archived, archived);
+        await db.Reads.UpdateOneAsync(x => x.Id == $"{uid}:{id}", u, new UpdateOptions { IsUpsert = true });
+        await notifications.Event([uid], "ConversationsChanged", id);
+    }
+    public async Task<List<Message>> Pins(string uid, string id)
+    {
+        await Member(uid, id); var state = await State(uid, id);
+        return await db.Messages.Find(x => x.ConversationId == id && state.PinnedMessageIds.Contains(x.Id) && !x.Deleted && x.CreatedAt > state.ClearedAt).SortByDescending(x => x.Id).ToListAsync();
+    }
+    public async Task Pin(string uid, string id, string messageId, bool pinned)
+    {
+        await Member(uid, id);
+        if (pinned)
+        {
+            var state = await State(uid, id);
+            Require(await db.Messages.Find(x => x.Id == messageId && x.ConversationId == id && !x.Deleted && x.CreatedAt > state.ClearedAt).AnyAsync(), "Message unavailable.", 404);
+            await db.Reads.UpdateOneAsync(x => x.Id == $"{uid}:{id}", Builders<ReadState>.Update.SetOnInsert(x => x.UserId, uid).SetOnInsert(x => x.ConversationId, id), new UpdateOptions { IsUpsert = true });
+            var filter = Builders<ReadState>.Filter.Eq(x => x.Id, $"{uid}:{id}") & new BsonDocument("PinnedMessageIds.99", new BsonDocument("$exists", false));
+            await db.Reads.UpdateOneAsync(filter, Builders<ReadState>.Update.AddToSet(x => x.PinnedMessageIds, messageId));
+            Require((await State(uid, id)).PinnedMessageIds.Contains(messageId), "You can pin up to 100 messages per conversation.", 409);
+        }
+        else await db.Reads.UpdateOneAsync(x => x.Id == $"{uid}:{id}", Builders<ReadState>.Update.Pull(x => x.PinnedMessageIds, messageId));
+        await notifications.Event([uid], "ConversationsChanged", id);
+    }
     private async Task<ReadState> GetState(string uid, string id) => await db.Reads.Find(x => x.UserId == uid && x.ConversationId == id).FirstOrDefaultAsync()
         ?? new ReadState { Id = $"{uid}:{id}", UserId = uid, ConversationId = id };
 
@@ -144,7 +176,7 @@ public sealed class ChatService(ChatStore db, Notifications notifications)
         await Member(uid, id);
         var now = DateTime.UtcNow;
         await db.Reads.UpdateOneAsync(x => x.Id == $"{uid}:{id}", Builders<ReadState>.Update
-            .SetOnInsert(x => x.UserId, uid).SetOnInsert(x => x.ConversationId, id).Set(x => x.ClearedAt, now).Max(x => x.ReadAt, now).Set(x => x.Hidden, hide), new UpdateOptions { IsUpsert = true });
+            .SetOnInsert(x => x.UserId, uid).SetOnInsert(x => x.ConversationId, id).Set(x => x.ClearedAt, now).Max(x => x.ReadAt, now).Set(x => x.Hidden, hide).Set(x => x.PinnedMessageIds, []), new UpdateOptions { IsUpsert = true });
         await notifications.Event([uid], "ConversationsChanged", id);
     }
 
@@ -235,5 +267,6 @@ public sealed class ChatService(ChatStore db, Notifications notifications)
             Builders<Message>.Update.Set(x => x.Deleted, true).Set(x => x.Text, ""));
         Require(result.MatchedCount == 1, "You can delete only your own messages.", 403);
         await notifications.Event(c.Members, "MessageDeleted", new { ConversationId = id, MessageId = messageId });
+        await db.Reads.UpdateManyAsync(x => x.ConversationId == id, Builders<ReadState>.Update.Pull(x => x.PinnedMessageIds, messageId));
     }
 }

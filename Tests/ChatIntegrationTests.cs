@@ -77,6 +77,40 @@ public sealed class ChatIntegrationTests : IClassFixture<Factory>
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/conversations")).StatusCode);
     }
+    [Fact] public async Task Conversation_preferences_are_private_persistent_and_independent_of_reads()
+    {
+        using var a = await User("alice"); using var b = await User("bob"); using var e = await User("eve"); var c = await Direct(a, b);
+        (await a.PatchAsJsonAsync($"/api/conversations/{c.Id}/preferences", new ConversationPreferences(true, true, true))).EnsureSuccessStatusCode();
+        var m = await Send(b, c.Id, "New message while archived");
+        (await a.PostAsync($"/api/conversations/{c.Id}/read/{m.Id}", null)).EnsureSuccessStatusCode();
+        var own = (await a.GetFromJsonAsync<JsonElement[]>("/api/conversations"))!.Single();
+        Assert.True(own.GetProperty("pinned").GetBoolean()); Assert.True(own.GetProperty("muted").GetBoolean()); Assert.True(own.GetProperty("archived").GetBoolean());
+        var peer = (await b.GetFromJsonAsync<JsonElement[]>("/api/conversations"))!.Single();
+        Assert.False(peer.GetProperty("pinned").GetBoolean()); Assert.False(peer.GetProperty("muted").GetBoolean()); Assert.False(peer.GetProperty("archived").GetBoolean());
+        foreach (var read in peer.GetProperty("reads").EnumerateArray()) Assert.False(read.TryGetProperty("muted", out _));
+        Assert.Equal(HttpStatusCode.NotFound, (await e.PatchAsJsonAsync($"/api/conversations/{c.Id}/preferences", new ConversationPreferences(Muted: true))).StatusCode);
+        (await a.PatchAsJsonAsync($"/api/conversations/{c.Id}/preferences", new ConversationPreferences(Archived: false))).EnsureSuccessStatusCode();
+        var state = await factory.Services.GetRequiredService<ChatService>().State(Uid(a), c.Id);
+        Assert.True(state.Muted); Assert.True(state.Pinned); Assert.False(state.Archived);
+    }
+    [Fact] public async Task Message_pins_enforce_membership_privacy_clear_boundaries_and_deletion()
+    {
+        using var a = await User("alice"); using var b = await User("bob"); using var e = await User("eve"); var c = await Direct(a, b); var other = await Direct(a, e);
+        var m = await Send(b, c.Id, "Keep this"); var unrelated = await Send(e, other.Id, "Other conversation");
+        string Path(string cid, string mid) => $"/api/conversations/{cid}/messages/{mid}/pin";
+        (await a.PutAsJsonAsync(Path(c.Id, m.Id), new PinInput(true))).EnsureSuccessStatusCode();
+        (await a.PutAsJsonAsync(Path(c.Id, m.Id), new PinInput(true))).EnsureSuccessStatusCode();
+        Assert.Single((await a.GetFromJsonAsync<List<Message>>($"/api/conversations/{c.Id}/pins"))!);
+        Assert.Empty((await b.GetFromJsonAsync<List<Message>>($"/api/conversations/{c.Id}/pins"))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await e.GetAsync($"/api/conversations/{c.Id}/pins")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await a.PutAsJsonAsync(Path(c.Id, unrelated.Id), new PinInput(true))).StatusCode);
+        (await a.DeleteAsync($"/api/conversations/{c.Id}")).EnsureSuccessStatusCode();
+        Assert.Empty((await a.GetFromJsonAsync<List<Message>>($"/api/conversations/{c.Id}/pins"))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await a.PutAsJsonAsync(Path(c.Id, m.Id), new PinInput(true))).StatusCode);
+        (await b.PutAsJsonAsync(Path(c.Id, m.Id), new PinInput(true))).EnsureSuccessStatusCode();
+        (await b.DeleteAsync($"/api/conversations/{c.Id}/messages/{m.Id}")).EnsureSuccessStatusCode();
+        Assert.Empty((await factory.Services.GetRequiredService<ChatService>().State(Uid(b), c.Id)).PinnedMessageIds);
+    }
     [Fact] public async Task Native_decline_requires_registered_invited_device_and_ignores_answered_calls()
     {
         using var a = await User("alice"); using var b = await User("bob"); using var outsider = await User("eve");

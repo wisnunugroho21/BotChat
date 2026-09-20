@@ -25,9 +25,12 @@ public sealed class Notifications(ChatStore db, IHubContext<ChatHub> hub, IConfi
     {
         await Event(c.Members, "MessageReceived", m);
         foreach (var uid in c.Members.Where(x => x != m.SenderId))
+        {
+            if (await db.Reads.Find(x => x.UserId == uid && x.ConversationId == c.Id && x.Muted).AnyAsync()) continue;
             await Push(uid, c.Type == "Group" ? c.Name : m.SenderName,
                 m.Mentions.Contains(uid) ? $"{m.SenderName} mentioned you" : m.Attachment?.FileName ?? m.Text,
                 new() { ["type"] = "message", ["conversationId"] = c.Id, ["messageId"] = m.Id });
+        }
     }
     public async Task Push(string uid, string title, string body, Dictionary<string, string> data)
     {

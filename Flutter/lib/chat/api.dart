@@ -37,6 +37,8 @@ class Api {
       (await dio.post<dynamic>(path, data: body)).data;
   Future<dynamic> put(String path, Object body) async =>
       (await dio.put<dynamic>(path, data: body)).data;
+  Future<dynamic> patch(String path, Object body) async =>
+      (await dio.patch<dynamic>(path, data: body)).data;
   Future<void> delete(String path, [Object? body]) async =>
       dio.delete<dynamic>(path, data: body);
   static String error(Object error) {

@@ -175,6 +175,23 @@ class ChatState extends ChangeNotifier {
     notify();
   }
 
+  Future<void> preferences(String id, Json changes) async {
+    await api.patch('/conversations/$id/preferences', changes);
+    for (final c in conversations.where((c) => c['id'] == id)) {
+      c.addAll(changes);
+    }
+    if (changes['archived'] == true && selected == id) selected = null;
+    notify();
+    await refresh();
+  }
+
+  Future<void> pinMessage(String id, String messageId, bool pinned) async {
+    await api.put('/conversations/$id/messages/$messageId/pin', {
+      'pinned': pinned,
+    });
+    await refresh();
+  }
+
   Future<void> select(String id) async {
     selected = id;
     notify();

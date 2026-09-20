@@ -29,6 +29,9 @@ public sealed class ChatController(ChatService chat, ChatStore db, Presence pres
         return new { Items = items.Select(x => new { x.Id, x.Name, x.Username, x.LastSeen, Online = presence.Online(x.Id) }), NextCursor = more ? items[^1].Id : null };
     }
     [HttpGet("conversations")] public Task<List<object>> Conversations() => chat.List(Uid);
+    [HttpPatch("conversations/{id}/preferences")] public Task Preferences(string id, ConversationPreferences input) => chat.Preferences(Uid, id, input);
+    [HttpGet("conversations/{id}/pins")] public Task<List<Message>> Pins(string id) => chat.Pins(Uid, id);
+    [HttpPut("conversations/{id}/messages/{messageId}/pin")] public Task Pin(string id, string messageId, PinInput input) => chat.Pin(Uid, id, messageId, input.Pinned);
     [HttpPost("conversations")] public Task<Conversation> Create(ConversationInput input) => chat.Create(Uid, input);
     [HttpGet("conversations/{id}/members")] public Task<List<Profile>> Members(string id) => chat.Members(Uid, id);
     [HttpPut("conversations/{id}")] public Task<Conversation> Edit(string id, GroupInput input) => chat.Edit(Uid, id, input);

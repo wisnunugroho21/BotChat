@@ -329,11 +329,16 @@ class ConversationTile extends StatelessWidget {
     this.mine = false,
     this.read = false,
     this.draft = false,
+    this.pinned = false,
+    this.muted = false,
+    this.onLongPress,
   });
   final String name, preview, time;
   final String? seed;
   final int unread, memberCount;
   final bool selected, group, online, mine, read, draft;
+  final bool pinned, muted;
+  final VoidCallback? onLongPress;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Padding(
@@ -349,6 +354,7 @@ class ConversationTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           constraints: const BoxConstraints(minHeight: 78),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
@@ -408,6 +414,24 @@ class ConversationTile extends StatelessWidget {
                     const SizedBox(height: 7),
                     Row(
                       children: [
+                        if (pinned)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Icons.push_pin,
+                              size: 14,
+                              color: ChatColors.blue,
+                            ),
+                          ),
+                        if (muted)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Icons.notifications_off_outlined,
+                              size: 14,
+                              color: ChatColors.muted,
+                            ),
+                          ),
                         if (mine && !draft) ...[
                           Icon(
                             read ? Icons.done_all : Icons.done,

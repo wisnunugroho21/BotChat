@@ -13,6 +13,7 @@ import 'theme.dart';
 import 'dialogs.dart';
 import 'attachments.dart';
 import 'quotes.dart';
+import 'pinned_messages.dart';
 
 class ChatThread extends StatefulWidget {
   const ChatThread({
@@ -309,6 +310,21 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
 
   Future<void> menu(String action) async {
     try {
+      if (['pinned', 'muted', 'archived'].contains(action)) {
+        final value = widget.conversation[action] != true;
+        await chat.preferences(id, {action: value});
+        if (mounted && action == 'archived' && value) widget.onBack();
+        return;
+      }
+      if (action == 'pins') {
+        final message = await Navigator.of(context).push<Json>(
+          MaterialPageRoute(
+            builder: (_) => PinnedMessages(chat: chat, conversationId: id),
+          ),
+        );
+        if (mounted && message != null) await jump(message.str('id'));
+        return;
+      }
       if (action == 'refresh') {
         await chat.load(id);
         await chat.markRead(id);
@@ -558,6 +574,38 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                   tooltip: 'Conversation options',
                   onSelected: menu,
                   itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'pinned',
+                      child: ChatMenuLabel(
+                        c['pinned'] == true
+                            ? 'Unpin conversation'
+                            : 'Pin conversation',
+                        Icons.push_pin_outlined,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'muted',
+                      child: ChatMenuLabel(
+                        c['muted'] == true
+                            ? 'Unmute messages'
+                            : 'Mute messages',
+                        Icons.notifications_off_outlined,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'archived',
+                      child: ChatMenuLabel(
+                        c['archived'] == true
+                            ? 'Unarchive conversation'
+                            : 'Archive conversation',
+                        Icons.archive_outlined,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'pins',
+                      child: ChatMenuLabel('Pinned messages', Icons.push_pin),
+                    ),
+                    const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'refresh',
                       child: ChatMenuLabel('Refresh', Icons.refresh),
@@ -616,6 +664,20 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
               ],
             ),
           ),
+          if ((c['pinnedMessageIds'] as List? ?? []).isNotEmpty)
+            Material(
+              color: ChatColors.soft,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.push_pin, color: ChatColors.blue),
+                title: Text(
+                  '${(c['pinnedMessageIds'] as List).length} pinned ${(c['pinnedMessageIds'] as List).length == 1 ? 'message' : 'messages'}',
+                ),
+                subtitle: const Text('Only visible to you · Tap to view'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => menu('pins'),
+              ),
+            ),
           Expanded(
             child: DecoratedBox(
               decoration: const BoxDecoration(
@@ -1191,6 +1253,23 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                            if ((widget.conversation['pinnedMessageIds']
+                                        as List? ??
+                                    [])
+                                .contains(m['id']))
+                              Padding(
+                                padding: const EdgeInsets.only(right: 5),
+                                child: Tooltip(
+                                  message: 'Pinned for you',
+                                  child: Icon(
+                                    Icons.push_pin,
+                                    size: 12,
+                                    color: mine
+                                        ? Colors.white70
+                                        : ChatColors.blue,
+                                  ),
+                                ),
+                              ),
                             Text(
                               DateFormat.Hm().format(
                                 DateTime.parse(m.str('createdAt')).toLocal(),
@@ -1248,6 +1327,20 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                           ),
                           tooltip: 'Message options',
                           onSelected: (value) async {
+                            if (value == 'pin') {
+                              try {
+                                await chat.pinMessage(
+                                  id,
+                                  m.str('id'),
+                                  !(widget.conversation['pinnedMessageIds']
+                                              as List? ??
+                                          [])
+                                      .contains(m['id']),
+                                );
+                              } catch (e) {
+                                error(e);
+                              }
+                            }
                             if (value == 'reply') {
                               setState(() => reply = m);
                               persist();
@@ -1279,6 +1372,18 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                             }
                           },
                           itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'pin',
+                              child: ChatMenuLabel(
+                                (widget.conversation['pinnedMessageIds']
+                                                as List? ??
+                                            [])
+                                        .contains(m['id'])
+                                    ? 'Unpin for me'
+                                    : 'Pin for me',
+                                Icons.push_pin_outlined,
+                              ),
+                            ),
                             const PopupMenuItem(
                               value: 'reply',
                               child: ChatMenuLabel('Reply', Icons.reply),

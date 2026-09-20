@@ -26,6 +26,7 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
   ChatState get chat => widget.chat;
   final search = TextEditingController();
   bool unread = false;
+  bool archived = false;
   String? callId;
   PushService? push;
   StreamSubscription<Json>? events;
@@ -46,6 +47,9 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
         final m = event['message'] as Json;
         if (mounted &&
             m['senderId'] != chat.uid &&
+            !chat.conversations.any(
+              (c) => c['id'] == m['conversationId'] && c['muted'] == true,
+            ) &&
             m['conversationId'] != chat.selected) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -302,15 +306,68 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
       ),
     ),
   );
+  Future<void> conversationActions(Json c) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(c.str('name')),
+              subtitle: const Text('These settings apply only to you'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.push_pin_outlined),
+              title: Text(
+                c['pinned'] == true ? 'Unpin conversation' : 'Pin conversation',
+              ),
+              onTap: () => Navigator.pop(context, 'pinned'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_off_outlined),
+              title: Text(
+                c['muted'] == true ? 'Unmute messages' : 'Mute messages',
+              ),
+              subtitle: const Text('Calls will still ring'),
+              onTap: () => Navigator.pop(context, 'muted'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: Text(
+                c['archived'] == true
+                    ? 'Unarchive conversation'
+                    : 'Archive conversation',
+              ),
+              onTap: () => Navigator.pop(context, 'archived'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+    try {
+      await chat.preferences(c.str('id'), {action: c[action] != true});
+    } catch (e) {
+      showError(e);
+    }
+  }
+
   Widget sidebar() {
     final query = search.text.toLowerCase();
-    final items = chat.conversations
+    final filtered = chat.conversations
         .where(
           (c) =>
               c.str('name').toLowerCase().contains(query) &&
+              (c['archived'] == true) == archived &&
               (!unread || (c['unread'] as num? ?? 0) > 0),
         )
         .toList();
+    final items = [
+      ...filtered.where((c) => c['pinned'] == true),
+      ...filtered.where((c) => c['pinned'] != true),
+    ];
     return ColoredBox(
       color: ChatColors.panel,
       child: Column(
@@ -477,18 +534,41 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
               children: [
                 ChoiceChip(
                   label: const Text('All'),
-                  selected: !unread,
-                  onSelected: (_) => setState(() => unread = false),
+                  selected: !unread && !archived,
+                  onSelected: (_) => setState(() {
+                    unread = false;
+                    archived = false;
+                  }),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: const Text('Unread'),
-                  selected: unread,
-                  onSelected: (_) => setState(() => unread = true),
+                  selected: unread && !archived,
+                  onSelected: (_) => setState(() {
+                    unread = true;
+                    archived = false;
+                  }),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Archived'),
+                  selected: archived,
+                  onSelected: (_) => setState(() {
+                    archived = true;
+                    unread = false;
+                  }),
                 ),
               ],
             ),
           ),
+          if (archived)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'Archived chats stay here when new messages arrive.',
+                style: TextStyle(fontSize: 12, color: ChatColors.muted),
+              ),
+            ),
           if (!chat.connected)
             Padding(
               padding: const EdgeInsets.all(8),
@@ -535,6 +615,8 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                               ? 'No matching conversations'
                               : unread
                               ? 'You’re all caught up'
+                              : archived
+                              ? 'No archived conversations'
                               : 'No conversations yet',
                         ),
                         TextButton(
@@ -543,13 +625,16 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                                   search.clear();
                                   setState(() {});
                                 }
-                              : unread
-                              ? () => setState(() => unread = false)
+                              : unread || archived
+                              ? () => setState(() {
+                                  unread = false;
+                                  archived = false;
+                                })
                               : newChat,
                           child: Text(
                             query.isNotEmpty
                                 ? 'Clear search'
-                                : unread
+                                : unread || archived
                                 ? 'View all conversations'
                                 : 'Start a conversation',
                           ),
@@ -575,6 +660,9 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                             .where((p) => p != chat.uid)
                             .firstOrNull;
                         return ConversationTile(
+                          pinned: c['pinned'] == true,
+                          muted: c['muted'] == true,
+                          onLongPress: () => conversationActions(c),
                           name: c.str('name'),
                           seed: peer?.toString(),
                           selected: c['id'] == chat.selected,
