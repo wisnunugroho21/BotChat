@@ -11,14 +11,16 @@ import 'package:video_player/video_player.dart';
 import 'api.dart';
 import 'chat_state.dart';
 import 'theme.dart';
+import 'quotes.dart';
 
-Future<void> previewUpload(
+Future<bool?> previewUpload(
   BuildContext context,
   ChatState chat,
   Json conversation,
   String path,
-  String name,
-) => showDialog<void>(
+  String name, {
+  Json? reply,
+}) => showDialog<bool>(
   context: context,
   barrierDismissible: false,
   builder: (_) => UploadPreview(
@@ -26,6 +28,7 @@ Future<void> previewUpload(
     conversation: conversation,
     path: path,
     name: name,
+    reply: reply,
   ),
 );
 
@@ -36,10 +39,12 @@ class UploadPreview extends StatefulWidget {
     required this.conversation,
     required this.path,
     required this.name,
+    this.reply,
   });
   final ChatState chat;
   final Json conversation;
   final String path, name;
+  final Json? reply;
   @override
   State<UploadPreview> createState() => _UploadPreviewState();
 }
@@ -76,6 +81,7 @@ class _UploadPreviewState extends State<UploadPreview> {
     try {
       final data = FormData.fromMap({
         'clientMessageId': requestId,
+        if (widget.reply != null) 'replyToMessageId': widget.reply!['id'],
         'file': await MultipartFile.fromFile(
           widget.path,
           filename: widget.name,
@@ -92,7 +98,7 @@ class _UploadPreviewState extends State<UploadPreview> {
       );
       widget.chat.merge(Map<String, dynamic>.from(response.data));
       await widget.chat.refresh();
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) setState(() => error = Api.error(e));
     } finally {
@@ -117,6 +123,36 @@ class _UploadPreviewState extends State<UploadPreview> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.reply != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ChatColors.soft,
+                    border: const Border(
+                      left: BorderSide(color: ChatColors.blue, width: 3),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Replying to ${widget.reply!.str('senderName')}',
+                        style: const TextStyle(
+                          color: ChatColors.blue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        quoteFor(widget.reply!).str('preview'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
               if (mime.startsWith('image/'))
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),

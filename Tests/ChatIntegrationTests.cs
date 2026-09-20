@@ -191,6 +191,41 @@ public sealed class ChatIntegrationTests : IClassFixture<Factory>
         (await a.PostAsync($"/api/calls/{call.Id}/leave", null)).EnsureSuccessStatusCode();
         Assert.NotNull((await b.GetFromJsonAsync<Call>($"/api/calls/{call.Id}"))!.EndedAt);
     }
+    [Theory]
+    [InlineData("image/png", "photo.png", "Image", "Photo")]
+    [InlineData("video/mp4", "clip.mp4", "Video", "Video")]
+    [InlineData("audio/mp4", "voice.m4a", "Audio", "Voice note")]
+    [InlineData("application/pdf", "document.pdf", "File", "File")]
+    public async Task Quoted_replies_work_between_text_and_all_attachment_types(string mime, string name, string type, string label)
+    {
+        using var a = await User("alice"); using var b = await User("bob"); var c = await Direct(a, b);
+        var text = await Send(b, c.Id, "Please review");
+        async Task<HttpResponseMessage> Upload(string key, string? reply, string conversation)
+        {
+            using var file = new ByteArrayContent([1, 2, 3]);
+            file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mime);
+            using var form = new MultipartFormDataContent { { new StringContent(key), "clientMessageId" }, { file, "file", name } };
+            if (reply is not null) form.Add(new StringContent(reply), "replyToMessageId");
+            return await a.PostAsync($"/api/conversations/{conversation}/attachments", form);
+        }
+        var response = await Upload(Guid.NewGuid().ToString(), text.Id, c.Id); response.EnsureSuccessStatusCode();
+        var source = (await response.Content.ReadFromJsonAsync<Message>())!;
+        Assert.Equal(type, source.Type); Assert.Equal("Please review", source.Reply!.Preview);
+        var textReply = await Send(b, c.Id, "Reviewed", reply: source.Id);
+        Assert.Equal(type, textReply.Reply!.Type); Assert.Equal($"{label} · {name}", textReply.Reply.Preview);
+        var key = Guid.NewGuid().ToString();
+        var attachedReply = (await (await Upload(key, source.Id, c.Id)).Content.ReadFromJsonAsync<Message>())!;
+        Assert.Equal(textReply.Reply, attachedReply.Reply);
+        Assert.Equal(HttpStatusCode.Conflict, (await Upload(key, text.Id, c.Id)).StatusCode);
+        using var outsider = await User("eve"); var other = await Direct(a, outsider);
+        Assert.Equal(HttpStatusCode.NotFound, (await Upload(Guid.NewGuid().ToString(), source.Id, other.Id)).StatusCode);
+        (await a.DeleteAsync($"/api/conversations/{c.Id}/messages/{source.Id}")).EnsureSuccessStatusCode();
+        var retry = await Upload(key, source.Id, c.Id); retry.EnsureSuccessStatusCode();
+        Assert.Equal(attachedReply.Id, (await retry.Content.ReadFromJsonAsync<Message>())!.Id);
+        var history = await b.GetFromJsonAsync<Page<Message>>($"/api/conversations/{c.Id}/messages");
+        Assert.Equal(textReply.Reply, history!.Items.Single(x => x.Id == attachedReply.Id).Reply);
+        Assert.Equal(HttpStatusCode.NotFound, (await Upload(Guid.NewGuid().ToString(), source.Id, c.Id)).StatusCode);
+    }
 
     [Fact] public async Task SignalR_delivers_to_recipient_and_other_sender_session()
     {

@@ -58,7 +58,7 @@ public sealed class ChatController(ChatService chat, ChatStore db, Presence pres
     }
 
     [HttpPost("conversations/{id}/attachments"), RequestSizeLimit(26 * 1024 * 1024)]
-    public async Task<Message> Upload(string id, IFormFile file, [FromForm] string clientMessageId)
+    public async Task<Message> Upload(string id, IFormFile file, [FromForm] string clientMessageId, [FromForm] string? replyToMessageId = null)
     {
         await chat.Member(Uid, id);
         ChatService.Require(Guid.TryParse(clientMessageId, out _), "A client UUID is required.");
@@ -74,10 +74,12 @@ public sealed class ChatController(ChatService chat, ChatStore db, Presence pres
         var mime = file.ContentType.ToLowerInvariant();
         if (!System.Text.RegularExpressions.Regex.IsMatch(mime, "^[a-z0-9.+-]+/[a-z0-9.+-]+$")) mime = "application/octet-stream";
         var existing = await db.Messages.Find(x => x.ConversationId == id && x.SenderId == Uid && x.ClientMessageId == clientMessageId).FirstOrDefaultAsync();
-        if (existing is not null) return await chat.Send(Uid, id, new(clientMessageId, name), new(existing.Attachment?.Id ?? "", name, mime, content.Length, hash));
+        if (existing is not null) return await chat.Send(Uid, id, new(clientMessageId, name, replyToMessageId), new(existing.Attachment?.Id ?? "", name, mime, content.Length, hash));
+        if (replyToMessageId is not null)
+            ChatService.Require(await db.Messages.Find(x => x.Id == replyToMessageId && x.ConversationId == id && !x.Deleted).AnyAsync(), "Quoted message unavailable.", 404);
         content.Position = 0;
         var fileId = await db.Files.UploadFromStreamAsync(name, content, cancellationToken: HttpContext.RequestAborted);
-        var result = await chat.Send(Uid, id, new(clientMessageId, name), new(fileId.ToString(), name, mime, content.Length, hash));
+        var result = await chat.Send(Uid, id, new(clientMessageId, name, replyToMessageId), new(fileId.ToString(), name, mime, content.Length, hash));
         // A concurrent identical retry may have won the unique message index.
         if (result.Attachment?.Id != fileId.ToString()) await db.Files.DeleteAsync(fileId);
         return result;

@@ -12,6 +12,7 @@ import 'chat_state.dart';
 import 'theme.dart';
 import 'dialogs.dart';
 import 'attachments.dart';
+import 'quotes.dart';
 
 class ChatThread extends StatefulWidget {
   const ChatThread({
@@ -196,13 +197,7 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
     try {
       final file = await FilePicker.pickFile();
       if (file?.path != null && mounted) {
-        await previewUpload(
-          context,
-          chat,
-          widget.conversation,
-          file!.path!,
-          file.name,
-        );
+        await sendAttachment(file!.path!, file.name);
       }
     } catch (e) {
       error(e);
@@ -249,17 +244,33 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => recording = false);
       if (send && path != null) {
-        await previewUpload(
-          context,
-          chat,
-          widget.conversation,
-          path,
-          'Voice note.m4a',
-        );
+        await sendAttachment(path, 'Voice note.m4a');
       }
     } catch (e) {
       error(e);
     }
+  }
+
+  Future<void> sendAttachment(String path, String name) async {
+    final selectedReply = reply == null
+        ? null
+        : Map<String, dynamic>.from(reply!);
+    final sent = await previewUpload(
+      context,
+      chat,
+      widget.conversation,
+      path,
+      name,
+      reply: selectedReply,
+    );
+    if (!mounted || sent != true) return;
+    if (reply?['id'] == selectedReply?['id']) {
+      setState(() => reply = null);
+      persist();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && scroll.isAttached) scroll.jumpTo(index: 0);
+    });
   }
 
   Future<void> jump(String target) async {
@@ -830,7 +841,7 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                           ),
                         ),
                         Text(
-                          reply!.str('text'),
+                          quoteFor(reply!).str('preview'),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),

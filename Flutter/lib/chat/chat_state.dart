@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'quotes.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -269,13 +270,7 @@ class ChatState extends ChangeNotifier {
       'clientMessageId': const Uuid().v4(),
       'text': text,
       'replyToMessageId': reply?['id'],
-      'reply': reply == null
-          ? null
-          : {
-              'id': reply['id'],
-              'senderName': reply['senderName'],
-              'preview': reply['text'],
-            },
+      'reply': reply == null ? null : quoteFor(reply),
       'senderId': uid,
       'senderName': me['name'],
       'createdAt': DateTime.now().toUtc().toIso8601String(),

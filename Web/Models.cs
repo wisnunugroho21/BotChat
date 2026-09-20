@@ -42,7 +42,7 @@ public sealed class Message
     public List<string> Mentions { get; set; } = [];
     public bool Deleted { get; set; }
 }
-public sealed record Quote(string Id, string SenderName, string Preview);
+public sealed record Quote(string Id, string SenderName, string Preview, string Type = "Text");
 public sealed record Attachment(string Id, string FileName, string MimeType, long Size, string Hash);
 public sealed class ReadState
 {

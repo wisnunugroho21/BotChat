@@ -206,8 +206,9 @@ public sealed class ChatService(ChatStore db, Notifications notifications)
         {
             var target = await db.Messages.Find(x => x.Id == input.ReplyToMessageId && x.ConversationId == id && !x.Deleted).FirstOrDefaultAsync();
             Require(target is not null, "Quoted message unavailable.", 404);
-            var preview = target!.Attachment?.FileName ?? target.Text;
-            quote = new(target.Id, target.SenderName, preview[..Math.Min(300, preview.Length)]);
+            var label = target!.Type switch { "Image" => "Photo", "Video" => "Video", "Audio" => "Voice note", "File" => "File", _ => "" };
+            var preview = target.Attachment is null ? target.Text : $"{label} · {target.Attachment.FileName}";
+            quote = new(target.Id, target.SenderName, preview[..Math.Min(300, preview.Length)], target.Type);
         }
         var profiles = await db.Profiles.Find(x => c.Members.Contains(x.Id)).ToListAsync();
         var mentions = c.Type == "Group" && attachment is null ? profiles.Where(p => Regex.IsMatch(input.Text, $@"(?<![\w@])@{Regex.Escape(p.Username)}(?![\w])", RegexOptions.IgnoreCase)).Select(p => p.Id).ToList() : [];
