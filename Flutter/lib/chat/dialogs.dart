@@ -241,7 +241,11 @@ class _ContactPickerState extends State<ContactPicker> {
                       children: selected.values
                           .map(
                             (p) => Chip(
-                              avatar: Avatar(p.str('name'), radius: 12),
+                              avatar: Avatar(
+                                p.str('name'),
+                                seed: p.str('username'),
+                                radius: 12,
+                              ),
                               label: Text(p.str('name')),
                             ),
                           )
@@ -418,6 +422,7 @@ class _ContactPickerState extends State<ContactPicker> {
           ..sort((a, b) => a.str('name').compareTo(b.str('name')));
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: ChatLayout.header(context),
         title: Text(
           editing
               ? 'Edit group and members'
@@ -478,6 +483,20 @@ class _ContactPickerState extends State<ContactPicker> {
                       ? 'Search name or number'
                       : 'Search people',
                   prefixIcon: const Icon(Icons.search),
+                  suffixIcon: query.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear people search',
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  query.clear();
+                                  debounce?.cancel();
+                                  setState(() {});
+                                  load();
+                                },
+                          icon: const Icon(Icons.close, size: 20),
+                        ),
                 ),
                 onChanged: (_) {
                   setState(() {});
@@ -531,6 +550,7 @@ class _ContactPickerState extends State<ContactPicker> {
             if (loading || busy) const LinearProgressIndicator(),
             Expanded(
               child: ListView(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
                 children: [
                   if (mode == 'direct' && !editing) ...[
                     ListTile(
@@ -572,23 +592,42 @@ class _ContactPickerState extends State<ContactPicker> {
                       ),
                     ),
                   for (final p in people)
-                    ListTile(
-                      leading: Avatar(
-                        p.str('name'),
-                        seed: p.str('username'),
-                        online: mode == 'direct' ? p['online'] == true : null,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Material(
+                        color: selected.containsKey(p['id'])
+                            ? ChatColors.soft
+                            : Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: selected.containsKey(p['id'])
+                                ? const Color(0xffccddfb)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: Avatar(
+                            p.str('name'),
+                            seed: p.str('username'),
+                            online: mode == 'direct'
+                                ? p['online'] == true
+                                : null,
+                          ),
+                          title: Text(p.str('name')),
+                          subtitle: Text('@${p['username']}'),
+                          selected: selected.containsKey(p['id']),
+                          selectedTileColor: ChatColors.soft,
+                          trailing: mode == 'direct'
+                              ? null
+                              : Checkbox(
+                                  value: selected.containsKey(p['id']),
+                                  onChanged: busy ? null : (_) => choose(p),
+                                ),
+                          onTap: busy ? null : () => choose(p),
+                        ),
                       ),
-                      title: Text(p.str('name')),
-                      subtitle: Text('@${p['username']}'),
-                      selected: selected.containsKey(p['id']),
-                      selectedTileColor: ChatColors.soft,
-                      trailing: mode == 'direct'
-                          ? null
-                          : Checkbox(
-                              value: selected.containsKey(p['id']),
-                              onChanged: busy ? null : (_) => choose(p),
-                            ),
-                      onTap: busy ? null : () => choose(p),
                     ),
                   if (cursor != null && !selectedOnly)
                     TextButton(
@@ -618,7 +657,11 @@ class _ContactPickerState extends State<ContactPicker> {
                                 (p) => Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: InputChip(
-                                    avatar: Avatar(p.str('name'), radius: 12),
+                                    avatar: Avatar(
+                                      p.str('name'),
+                                      seed: p.str('username'),
+                                      radius: 12,
+                                    ),
                                     label: Text(p.str('name')),
                                     onDeleted: busy
                                         ? null
@@ -655,6 +698,12 @@ class _ContactPickerState extends State<ContactPicker> {
                           )
                         else
                           IconButton.filled(
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: ChatColors.blue,
+                              disabledBackgroundColor: ChatColors.border,
+                              disabledForegroundColor: ChatColors.muted,
+                            ),
                             tooltip: mode == 'broadcast'
                                 ? 'Next: write message'
                                 : 'Next: name group',

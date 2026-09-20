@@ -316,7 +316,7 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
       child: Column(
         children: [
           Container(
-            height: 72,
+            height: ChatLayout.header(context),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             color: Colors.white,
             child: Row(
@@ -414,22 +414,37 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                   itemBuilder: (_) => const [
                     PopupMenuItem(
                       value: 'broadcast',
-                      child: Text('Broadcast message'),
+                      child: ChatMenuLabel(
+                        'Broadcast message',
+                        Icons.campaign_outlined,
+                      ),
                     ),
-                    PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+                    PopupMenuItem(
+                      value: 'refresh',
+                      child: ChatMenuLabel('Refresh', Icons.refresh),
+                    ),
                     PopupMenuItem(
                       value: 'read',
-                      child: Text('Mark all as read'),
+                      child: ChatMenuLabel('Mark all as read', Icons.done_all),
                     ),
                     PopupMenuItem(
                       value: 'search',
-                      child: Text('Search message content'),
+                      child: ChatMenuLabel(
+                        'Search message content',
+                        Icons.search,
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'notifications',
-                      child: Text('Enable notifications'),
+                      child: ChatMenuLabel(
+                        'Enable notifications',
+                        Icons.notifications_outlined,
+                      ),
                     ),
-                    PopupMenuItem(value: 'logout', child: Text('Sign out')),
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: ChatMenuLabel('Sign out', Icons.logout),
+                    ),
                   ],
                 ),
               ],
@@ -523,8 +538,21 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                               : 'No conversations yet',
                         ),
                         TextButton(
-                          onPressed: newChat,
-                          child: const Text('Start a conversation'),
+                          onPressed: query.isNotEmpty
+                              ? () {
+                                  search.clear();
+                                  setState(() {});
+                                }
+                              : unread
+                              ? () => setState(() => unread = false)
+                              : newChat,
+                          child: Text(
+                            query.isNotEmpty
+                                ? 'Clear search'
+                                : unread
+                                ? 'View all conversations'
+                                : 'Start a conversation',
+                          ),
                         ),
                       ],
                     ),
@@ -532,6 +560,8 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                 : RefreshIndicator(
                     onRefresh: chat.refresh,
                     child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 6, bottom: 16),
                       itemCount: items.length,
                       itemBuilder: (_, i) {
                         final c = items[i];

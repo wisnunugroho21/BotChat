@@ -107,6 +107,10 @@ void main() {
       );
       await tester.tap(find.text('Jamie Chen'));
       await tester.pumpAndSettle();
+      await expectLater(
+        find.byKey(const ValueKey('screen')),
+        matchesGoldenFile('goldens/group-people.png'),
+      );
       await tester.tap(find.byTooltip('Next: name group'));
       await tester.pumpAndSettle();
       expect(find.text('Name your group'), findsOneWidget);

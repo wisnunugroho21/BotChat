@@ -454,476 +454,534 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
         DateTime.now().difference(chat.typing[id] ?? DateTime(2000)).inSeconds <
         4;
     final peer = (c['members'] as List).where((p) => p != chat.uid).firstOrNull;
-    return Column(
-      children: [
-        Container(
-          height: ChatLayout.header(context),
-          color: Colors.white,
-          child: Row(
-            children: [
-              if (!ChatLayout.split(context))
-                IconButton(
-                  tooltip: 'Back to chats',
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back, size: 22),
-                ),
-              if (!ChatLayout.phone(context)) ...[
-                const SizedBox(width: 16),
-                Avatar(c.str('name'), group: group, seed: peer),
-                const SizedBox(width: 16),
-              ],
-              Expanded(
-                child: InkWell(
-                  onTap: group ? () => groupDetails(context, chat, c) : null,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        c.str('name'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
+    return ColoredBox(
+      color: ChatColors.panel,
+      child: Column(
+        children: [
+          Container(
+            height: ChatLayout.header(context),
+            color: Colors.white,
+            child: Row(
+              children: [
+                if (!ChatLayout.split(context))
+                  IconButton(
+                    tooltip: 'Back to chats',
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back, size: 22),
+                  ),
+                if (!ChatLayout.phone(context)) ...[
+                  const SizedBox(width: 16),
+                  Avatar(c.str('name'), group: group, seed: peer),
+                  const SizedBox(width: 16),
+                ],
+                Expanded(
+                  child: InkWell(
+                    onTap: group ? () => groupDetails(context, chat, c) : null,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.str('name'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                      Row(
-                        children: [
-                          if (!group &&
-                              !isTyping &&
-                              chat.online[peer] == true) ...[
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: Color(0xff10b981),
-                                shape: BoxShape.circle,
+                        Row(
+                          children: [
+                            if (!group &&
+                                !isTyping &&
+                                chat.online[peer] == true) ...[
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xff10b981),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              isTyping
+                                  ? 'typing…'
+                                  : group
+                                  ? '${(c['members'] as List).length} members'
+                                  : chat.online[peer] == true
+                                  ? 'Online'
+                                  : 'Offline',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isTyping || chat.online[peer] == true
+                                    ? const Color(0xff10b981)
+                                    : ChatColors.muted,
                               ),
                             ),
-                            const SizedBox(width: 4),
                           ],
-                          Text(
-                            isTyping
-                                ? 'typing…'
-                                : group
-                                ? '${(c['members'] as List).length} members'
-                                : chat.online[peer] == true
-                                ? 'Online'
-                                : 'Offline',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isTyping || chat.online[peer] == true
-                                  ? const Color(0xff10b981)
-                                  : ChatColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Voice call',
-                onPressed: () => widget.onCall(false),
-                icon: const Icon(
-                  Icons.phone_outlined,
-                  color: ChatColors.muted,
-                  size: 22,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Video call',
-                onPressed: () => widget.onCall(true),
-                icon: const Icon(
-                  Icons.videocam_outlined,
-                  color: ChatColors.muted,
-                ),
-              ),
-              PopupMenuButton<String>(
-                tooltip: 'Conversation options',
-                onSelected: menu,
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'refresh', child: Text('Refresh')),
-                  const PopupMenuItem(
-                    value: 'search',
-                    child: Text('Search in conversation'),
-                  ),
-                  if (group)
-                    const PopupMenuItem(
-                      value: 'details',
-                      child: Text('Group details'),
-                    ),
-                  if (group && c['owner'] == chat.uid)
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Edit group and members'),
-                    ),
-                  const PopupMenuItem(
-                    value: 'clear',
-                    child: Text('Clear messages'),
-                  ),
-                  if (group)
-                    const PopupMenuItem(
-                      value: 'leave',
-                      child: Text('Leave group'),
-                    )
-                  else
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Delete conversation'),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xffedf3f9),
-                  Color(0xffe7effc),
-                  Color(0xffedf3f9),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: CustomPaint(
-              painter: ChatWallpaper(),
-              child: Stack(
-                children: [
-                  if (messages.isEmpty && chat.fetching.contains(id))
-                    const Center(child: CircularProgressIndicator())
-                  else if (messages.isEmpty)
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Avatar(c.str('name'), group: group, radius: 36),
-                          const SizedBox(height: 16),
-                          Text(
-                            c.str('name'),
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              group
-                                  ? 'This is the beginning of this group.'
-                                  : 'This is the beginning of your conversation.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: ChatColors.muted),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ScrollablePositionedList.builder(
-                        shrinkWrap: true,
-                        itemScrollController: scroll,
-                        itemPositionsListener: positions,
-                        reverse: true,
-                        padding: EdgeInsets.symmetric(
-                          vertical: 18,
-                          horizontal: threadInset,
                         ),
-                        itemCount: messages.length + 1,
-                        itemBuilder: (_, index) {
-                          if (index == messages.length) {
-                            if (!paged && chat.cursors[id] == null) {
-                              return const SizedBox.shrink();
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Voice call',
+                  onPressed: () => widget.onCall(false),
+                  icon: const Icon(
+                    Icons.phone_outlined,
+                    color: ChatColors.muted,
+                    size: 22,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Video call',
+                  onPressed: () => widget.onCall(true),
+                  icon: const Icon(
+                    Icons.videocam_outlined,
+                    color: ChatColors.muted,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Conversation options',
+                  onSelected: menu,
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'refresh',
+                      child: ChatMenuLabel('Refresh', Icons.refresh),
+                    ),
+                    const PopupMenuItem(
+                      value: 'search',
+                      child: ChatMenuLabel(
+                        'Search in conversation',
+                        Icons.search,
+                      ),
+                    ),
+                    if (group)
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: ChatMenuLabel(
+                          'Group details',
+                          Icons.info_outline,
+                        ),
+                      ),
+                    if (group && c['owner'] == chat.uid)
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: ChatMenuLabel(
+                          'Edit group and members',
+                          Icons.edit_outlined,
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: ChatMenuLabel(
+                        'Clear messages',
+                        Icons.cleaning_services_outlined,
+                        destructive: true,
+                      ),
+                    ),
+                    if (group)
+                      const PopupMenuItem(
+                        value: 'leave',
+                        child: ChatMenuLabel(
+                          'Leave group',
+                          Icons.logout,
+                          destructive: true,
+                        ),
+                      )
+                    else
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ChatMenuLabel(
+                          'Delete conversation',
+                          Icons.delete_outline,
+                          destructive: true,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xffedf3f9),
+                    Color(0xffe7effc),
+                    Color(0xffedf3f9),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: CustomPaint(
+                painter: ChatWallpaper(),
+                child: Stack(
+                  children: [
+                    if (messages.isEmpty && chat.fetching.contains(id))
+                      const Center(child: CircularProgressIndicator())
+                    else if (messages.isEmpty)
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Avatar(c.str('name'), group: group, radius: 36),
+                            const SizedBox(height: 16),
+                            Text(
+                              c.str('name'),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Text(
+                                group
+                                    ? 'This is the beginning of this group.'
+                                    : 'This is the beginning of your conversation.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: ChatColors.muted),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: ScrollablePositionedList.builder(
+                          shrinkWrap: true,
+                          itemScrollController: scroll,
+                          itemPositionsListener: positions,
+                          reverse: true,
+                          padding: EdgeInsets.symmetric(
+                            vertical: 18,
+                            horizontal: threadInset,
+                          ),
+                          itemCount: messages.length + 1,
+                          itemBuilder: (_, index) {
+                            if (index == messages.length) {
+                              if (!paged && chat.cursors[id] == null) {
+                                return const SizedBox.shrink();
+                              }
+                              return Center(
+                                child: chat.fetching.contains(id)
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : TextButton(
+                                        onPressed: chat.cursors[id] == null
+                                            ? null
+                                            : () {
+                                                paged = true;
+                                                chat.load(id, older: true);
+                                              },
+                                        child: Text(
+                                          chat.cursors[id] == null
+                                              ? 'Beginning of conversation'
+                                              : 'Load older messages',
+                                        ),
+                                      ),
+                              );
                             }
-                            return Center(
-                              child: chat.fetching.contains(id)
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(),
-                                    )
-                                  : TextButton(
-                                      onPressed: chat.cursors[id] == null
-                                          ? null
-                                          : () {
-                                              paged = true;
-                                              chat.load(id, older: true);
-                                            },
-                                      child: Text(
-                                        chat.cursors[id] == null
-                                            ? 'Beginning of conversation'
-                                            : 'Load older messages',
-                                      ),
+                            final m = messages[index];
+                            final older = index + 1 < messages.length
+                                ? messages[index + 1]
+                                : null;
+                            final date = DateTime.parse(
+                              m.str('createdAt'),
+                            ).toLocal();
+                            final day = DateFormat.yMd().format(date);
+                            final olderDay = older == null
+                                ? ''
+                                : DateFormat.yMd().format(
+                                    DateTime.parse(
+                                      older.str('createdAt'),
+                                    ).toLocal(),
+                                  );
+                            final first =
+                                older == null ||
+                                older['senderId'] != m['senderId'] ||
+                                day != olderDay;
+                            return Column(
+                              children: [
+                                if (day != olderDay)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
                                     ),
-                            );
-                          }
-                          final m = messages[index];
-                          final older = index + 1 < messages.length
-                              ? messages[index + 1]
-                              : null;
-                          final date = DateTime.parse(
-                            m.str('createdAt'),
-                          ).toLocal();
-                          final day = DateFormat.yMd().format(date);
-                          final olderDay = older == null
-                              ? ''
-                              : DateFormat.yMd().format(
-                                  DateTime.parse(
-                                    older.str('createdAt'),
-                                  ).toLocal(),
-                                );
-                          final first =
-                              older == null ||
-                              older['senderId'] != m['senderId'] ||
-                              day != olderDay;
-                          return Column(
-                            children: [
-                              if (day != olderDay)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: .85,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: .85,
+                                        ),
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: ChatColors.border,
+                                        ),
                                       ),
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: ChatColors.border,
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 7,
-                                      ),
-                                      child: Text(
-                                        day ==
-                                                DateFormat.yMd().format(
-                                                  DateTime.now(),
-                                                )
-                                            ? 'TODAY'
-                                            : DateFormat.yMMMd()
-                                                  .format(date)
-                                                  .toUpperCase(),
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: .7,
-                                          color: ChatColors.muted,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 7,
+                                        ),
+                                        child: Text(
+                                          day ==
+                                                  DateFormat.yMd().format(
+                                                    DateTime.now(),
+                                                  )
+                                              ? 'TODAY'
+                                              : DateFormat.yMMMd()
+                                                    .format(date)
+                                                    .toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: .7,
+                                            color: ChatColors.muted,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              bubble(m, first, group),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  if (newMessages > 0)
-                    Positioned(
-                      bottom: 12,
-                      left: 12,
-                      right: 12,
-                      child: Center(
-                        child: FloatingActionButton.extended(
-                          backgroundColor: Colors.white,
-                          foregroundColor: ChatColors.blue,
-                          heroTag: 'new-$id',
-                          onPressed: () {
-                            scroll.jumpTo(index: 0);
-                            setState(() => newMessages = 0);
-                            chat.markRead(id);
+                                bubble(m, first, group),
+                              ],
+                            );
                           },
-                          label: Text(
-                            '$newMessages new ${newMessages == 1 ? 'message' : 'messages'}',
-                          ),
-                          icon: const Icon(Icons.arrow_downward),
                         ),
                       ),
-                    ),
-                  if (jumping)
-                    const Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: LinearProgressIndicator(),
-                    ),
-                ],
+                    if (newMessages > 0)
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 12,
+                        child: Center(
+                          child: FloatingActionButton.extended(
+                            backgroundColor: Colors.white,
+                            foregroundColor: ChatColors.blue,
+                            heroTag: 'new-$id',
+                            onPressed: () {
+                              scroll.jumpTo(index: 0);
+                              setState(() => newMessages = 0);
+                              chat.markRead(id);
+                            },
+                            label: Text(
+                              '$newMessages new ${newMessages == 1 ? 'message' : 'messages'}',
+                            ),
+                            icon: const Icon(Icons.arrow_downward),
+                          ),
+                        ),
+                      ),
+                    if (jumping)
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        if (chat.error != null)
-          TextButton(
-            onPressed: () => chat.load(id),
-            child: Text('${chat.error} Retry'),
-          ),
-        if (reply != null)
+          if (chat.error != null)
+            TextButton(
+              onPressed: () => chat.load(id),
+              child: Text('${chat.error} Retry'),
+            ),
+          if (reply != null)
+            Container(
+              margin: EdgeInsets.fromLTRB(
+                ChatLayout.phone(context) ? 12 : 24,
+                8,
+                ChatLayout.phone(context) ? 12 : 24,
+                0,
+              ),
+              decoration: BoxDecoration(
+                color: ChatColors.soft,
+                border: const Border(
+                  left: BorderSide(color: ChatColors.blue, width: 3),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.reply, color: ChatColors.blue),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reply!.str('senderName'),
+                          style: const TextStyle(
+                            color: ChatColors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          reply!.str('text'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cancel reply',
+                    onPressed: () {
+                      setState(() => reply = null);
+                      persist();
+                      focus.requestFocus();
+                    },
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+          if (suggestions.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 190),
+              child: ListView(
+                shrinkWrap: true,
+                children: suggestions
+                    .map(
+                      (p) => ListTile(
+                        selected: suggestions.indexOf(p) == mentionIndex,
+                        selectedTileColor: ChatColors.soft,
+                        dense: true,
+                        leading: Avatar(p.str('name'), radius: 16),
+                        title: Text(p.str('name')),
+                        subtitle: Text('@${p['username']}'),
+                        onTap: () => insertMention(p),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           Container(
-            color: ChatColors.soft,
-            padding: const EdgeInsets.only(left: 16),
-            child: Row(
-              children: [
-                const Icon(Icons.reply, color: ChatColors.blue),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            margin: ChatLayout.phone(context)
+                ? EdgeInsets.zero
+                : const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: ChatLayout.phone(context)
+                  ? null
+                  : BorderRadius.circular(20),
+              border: Border.all(color: ChatColors.border),
+            ),
+            padding: EdgeInsets.symmetric(
+              vertical: ChatLayout.phone(context) ? 8 : 10,
+              horizontal: 8,
+            ),
+            child: recording
+                ? Row(
                     children: [
-                      Text(
-                        reply!.str('senderName'),
-                        style: const TextStyle(
-                          color: ChatColors.blue,
-                          fontWeight: FontWeight.w600,
+                      IconButton(
+                        tooltip: 'Cancel recording',
+                        onPressed: () => stopRecording(send: false),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                      Expanded(
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Recording voice note',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              Text(
+                                '${recordSeconds ~/ 60}:${(recordSeconds % 60).toString().padLeft(2, '0')}',
+                                style: const TextStyle(
+                                  color: ChatColors.muted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      Text(
-                        reply!.str('text'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      IconButton(
+                        tooltip: 'Finish recording',
+                        style: IconButton.styleFrom(
+                          backgroundColor: ChatColors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: stopRecording,
+                        icon: const Icon(
+                          Icons.stop_circle,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        tooltip: 'Attach file',
+                        onPressed: attach,
+                        icon: const Icon(
+                          Icons.attach_file,
+                          color: ChatColors.muted,
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: composer,
+                          focusNode: focus,
+                          minLines: 1,
+                          maxLines: 5,
+                          maxLength: 4000,
+                          onChanged: textChanged,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            hintText: 'Type a message',
+                            counterText: '',
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: composer.text.trim().isEmpty
+                            ? 'Record voice note'
+                            : 'Send message',
+                        style: IconButton.styleFrom(
+                          backgroundColor: composer.text.trim().isEmpty
+                              ? Colors.transparent
+                              : ChatColors.blue,
+                          foregroundColor: composer.text.trim().isEmpty
+                              ? ChatColors.blue
+                              : Colors.white,
+                        ),
+                        onPressed: composer.text.trim().isEmpty
+                            ? startRecording
+                            : send,
+                        icon: Icon(
+                          composer.text.trim().isEmpty
+                              ? Icons.mic_none
+                              : Icons.send_rounded,
+                          color: composer.text.trim().isEmpty
+                              ? ChatColors.blue
+                              : Colors.white,
+                        ),
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Cancel reply',
-                  onPressed: () {
-                    setState(() => reply = null);
-                    persist();
-                    focus.requestFocus();
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
           ),
-        if (suggestions.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 190),
-            child: ListView(
-              shrinkWrap: true,
-              children: suggestions
-                  .map(
-                    (p) => ListTile(
-                      selected: suggestions.indexOf(p) == mentionIndex,
-                      selectedTileColor: ChatColors.soft,
-                      dense: true,
-                      leading: Avatar(p.str('name'), radius: 16),
-                      title: Text(p.str('name')),
-                      subtitle: Text('@${p['username']}'),
-                      onTap: () => insertMention(p),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        Container(
-          margin: ChatLayout.phone(context)
-              ? EdgeInsets.zero
-              : const EdgeInsets.fromLTRB(24, 8, 24, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: ChatLayout.phone(context)
-                ? null
-                : BorderRadius.circular(22),
-            border: Border.all(color: ChatColors.border),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: recording
-              ? Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Cancel recording',
-                      onPressed: () => stopRecording(send: false),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                    Expanded(
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Recording voice note',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                            Text(
-                              '${recordSeconds ~/ 60}:${(recordSeconds % 60).toString().padLeft(2, '0')}',
-                              style: const TextStyle(
-                                color: ChatColors.muted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Finish recording',
-                      onPressed: stopRecording,
-                      icon: const Icon(
-                        Icons.stop_circle,
-                        color: ChatColors.blue,
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      tooltip: 'Attach file',
-                      onPressed: attach,
-                      icon: const Icon(
-                        Icons.attach_file,
-                        color: ChatColors.muted,
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: composer,
-                        focusNode: focus,
-                        minLines: 1,
-                        maxLines: 5,
-                        maxLength: 4000,
-                        onChanged: textChanged,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message',
-                          counterText: '',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: composer.text.trim().isEmpty
-                          ? 'Record voice note'
-                          : 'Send message',
-                      onPressed: composer.text.trim().isEmpty
-                          ? startRecording
-                          : send,
-                      icon: Icon(
-                        composer.text.trim().isEmpty
-                            ? Icons.mic_none
-                            : Icons.send_rounded,
-                        color: ChatColors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1212,16 +1270,20 @@ class _ChatThreadState extends State<ChatThread> with WidgetsBindingObserver {
                           itemBuilder: (_) => [
                             const PopupMenuItem(
                               value: 'reply',
-                              child: Text('Reply'),
+                              child: ChatMenuLabel('Reply', Icons.reply),
                             ),
                             const PopupMenuItem(
                               value: 'copy',
-                              child: Text('Copy'),
+                              child: ChatMenuLabel('Copy', Icons.copy_outlined),
                             ),
                             if (mine)
                               const PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Delete'),
+                                child: ChatMenuLabel(
+                                  'Delete',
+                                  Icons.delete_outline,
+                                  destructive: true,
+                                ),
                               ),
                           ],
                         ),

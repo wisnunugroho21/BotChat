@@ -18,10 +18,53 @@ ThemeData chatTheme() => ThemeData(
     surfaceTintColor: Colors.transparent,
   ),
   fontFamily: 'Roboto',
+  textTheme: const TextTheme(
+    bodyLarge: TextStyle(fontSize: 14, height: 1.5, color: ChatColors.ink),
+    bodyMedium: TextStyle(fontSize: 14, height: 1.5, color: ChatColors.ink),
+    titleMedium: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: ChatColors.ink,
+    ),
+    bodySmall: TextStyle(fontSize: 12, height: 1.5, color: ChatColors.muted),
+  ),
+  popupMenuTheme: PopupMenuThemeData(
+    color: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    elevation: 8,
+    shadowColor: ChatColors.ink.withValues(alpha: .14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: const BorderSide(color: ChatColors.border),
+    ),
+    textStyle: const TextStyle(
+      fontFamily: 'Roboto',
+      fontSize: 14,
+      color: ChatColors.ink,
+    ),
+  ),
+  listTileTheme: const ListTileThemeData(
+    iconColor: ChatColors.muted,
+    textColor: ChatColors.ink,
+    titleTextStyle: TextStyle(
+      fontFamily: 'Roboto',
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: ChatColors.ink,
+    ),
+    subtitleTextStyle: TextStyle(
+      fontFamily: 'Roboto',
+      fontSize: 12,
+      height: 1.5,
+      color: ChatColors.muted,
+    ),
+    minVerticalPadding: 12,
+  ),
   iconButtonTheme: IconButtonThemeData(
     style: IconButton.styleFrom(
       minimumSize: const Size(44, 44),
       foregroundColor: ChatColors.muted,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
   ),
   chipTheme: ChipThemeData(
@@ -44,11 +87,27 @@ ThemeData chatTheme() => ThemeData(
     foregroundColor: ChatColors.ink,
     surfaceTintColor: Colors.transparent,
     elevation: 0,
+    titleTextStyle: TextStyle(
+      fontFamily: 'Roboto',
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      color: ChatColors.ink,
+    ),
   ),
   dividerColor: ChatColors.border,
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: ChatColors.panel,
+    hintStyle: const TextStyle(
+      fontFamily: 'Roboto',
+      fontSize: 14,
+      color: ChatColors.muted,
+    ),
+    prefixIconColor: ChatColors.muted,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xff60a5fa), width: 1.5),
+    ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: const BorderSide(color: ChatColors.border),
@@ -73,6 +132,37 @@ abstract final class ChatLayout {
   static bool phone(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= 600;
   static double header(BuildContext context) => phone(context) ? 64 : 72;
+}
+
+class ChatMenuLabel extends StatelessWidget {
+  const ChatMenuLabel(
+    this.text,
+    this.icon, {
+    super.key,
+    this.destructive = false,
+  });
+  final String text;
+  final IconData icon;
+  final bool destructive;
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(
+        icon,
+        size: 20,
+        color: destructive ? const Color(0xffdc2626) : ChatColors.muted,
+      ),
+      const SizedBox(width: 12),
+      Flexible(
+        child: Text(
+          text,
+          style: TextStyle(
+            color: destructive ? const Color(0xffdc2626) : ChatColors.ink,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// Original chat-bubble-tail.svg silhouette, mirrored for outgoing messages.

@@ -291,6 +291,10 @@ void main() {
       await tester.tap(find.text('Reply').last);
       await tester.pumpAndSettle();
       expect(find.byTooltip('Cancel reply'), findsOneWidget);
+      await expectLater(
+        find.byKey(const ValueKey('preview')),
+        matchesGoldenFile('goldens/reply-${width.toInt()}.png'),
+      );
       await tester.tap(find.byTooltip('Cancel reply'));
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsOneWidget);
