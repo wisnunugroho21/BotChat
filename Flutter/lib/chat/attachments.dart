@@ -12,6 +12,7 @@ import 'api.dart';
 import 'chat_state.dart';
 import 'theme.dart';
 import 'quotes.dart';
+import 'ui.dart';
 
 Future<bool?> previewUpload(
   BuildContext context,
@@ -61,9 +62,19 @@ class _UploadPreviewState extends State<UploadPreview> {
   void initState() {
     super.initState();
     mime = lookupMimeType(widget.path) ?? 'application/octet-stream';
-    File(widget.path).length().then((v) {
-      if (mounted) setState(() => size = v);
-    });
+    File(widget.path)
+        .length()
+        .then((v) {
+          if (mounted) setState(() => size = v);
+        })
+        .catchError((Object _) {
+          if (mounted) {
+            setState(
+              () =>
+                  error = 'This file is no longer available. Choose it again.',
+            );
+          }
+        });
   }
 
   Future<void> upload() async {
@@ -175,9 +186,15 @@ class _UploadPreviewState extends State<UploadPreview> {
                   color: ChatColors.blue,
                 ),
               const SizedBox(height: 16),
-              Text(widget.name, textAlign: TextAlign.center),
               Text(
-                '${(size / 1024).toStringAsFixed(1)} KB',
+                widget.name,
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                fileSizeLabel(size),
                 style: const TextStyle(color: ChatColors.muted),
               ),
               if (busy) ...[
@@ -189,14 +206,7 @@ class _UploadPreviewState extends State<UploadPreview> {
                       : 'Saving message…',
                 ),
               ],
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
+              if (error != null) ChatNotice(error!),
             ],
           ),
         ),
@@ -380,7 +390,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         children: [
           Expanded(
             child: Text(
-              '${((attachment['size'] as num) / 1024).toStringAsFixed(1)} KB',
+              fileSizeLabel((attachment['size'] as num).toInt()),
               style: TextStyle(
                 fontSize: 11,
                 color: widget.mine ? Colors.white70 : ChatColors.muted,

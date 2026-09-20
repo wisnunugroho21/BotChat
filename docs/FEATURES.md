@@ -7,7 +7,7 @@ Reference sources: `TMS/Website/Areas/Chat/Views/Chat/Chat.cshtml`, `TMS/Website
 | TMS Connect / Messages header | Same brand labels, initials avatars, call history/new-chat/options actions |
 | Blue/white bubbles and pale doodle background | Same #2563eb accent, #172b4d text, #62718a secondary text, #e1e7f0 borders, #f6f8fc panels; original 260px SVG doodle paths ported to Flutter Canvas; Roboto bundled with license |
 | Message shape and group identity | Current stylesheet's 8px message corners, original SVG tail silhouette mirrored for outgoing messages, and 32px group sender avatars on both sides |
-| Responsive conversation layout | Original >900px split breakpoint with 390px sidebar; single-pane navigation through 900px; 64px phone / 72px wider headers; header avatar hidden through 600px; original message insets, rounded desktop composer and phone edge-to-edge composer |
+| Responsive conversation layout | Original >900px split breakpoint with 390px sidebar; single-pane navigation through 900px; 64px phone / 72px wider headers that grow for enlarged text; header avatar hidden through 600px; original message insets, rounded desktop composer and phone edge-to-edge composer |
 | Conversation selection and welcome | Rounded blue selected row/left stripe, unread count/time, draft preview, receipt ticks, deterministic six-color initials, presence/member-count badges; original welcome and beginning-of-conversation copy |
 | Direct/group chat | Independent MongoDB membership and profile records, owner checks, membership revisions, ownership transfer |
 | All / Unread, contact search | Native search fields, chips, empty/loading/retry states, contact pagination |
@@ -20,6 +20,8 @@ Reference sources: `TMS/Website/Areas/Chat/Views/Chat/Chat.cshtml`, `TMS/Website
 | Quoted replies across message types | Text, photos, videos, voice notes and files share stable type-aware previews. Uploads carry the selected reply ID and retain it during retry. Upload confirmation shows the quote; cancellation/failure preserves the reply draft, success clears the quote without discarding typed text. Saved snapshots remain readable if the original is deleted; tapping an unavailable original gives an explanation. |
 | Menus | Conversation and list Refresh, Mark all read, Broadcast message, search, call history, group details/edit, clear/delete/leave actions |
 | Control and surface styling | Shared 12px rounded controls, compact 14px body / 18px secondary-screen heading typography, blue focus borders, white icon menus with red destructive actions, rounded selected-contact cards, consistent avatar colors in selected chips, and an inset blue-accent reply panel; Send and active recording retain blue backgrounds |
+| Account and feedback | Branded sign-in, registration and profile cards; password visibility, inline field validation, autofill and keyboard actions; green success notices and consistent error/empty states with recovery actions |
+| Call history | Date-grouped cards, missed-call filtering, call duration, direction indicators and one-tap callback; circular call controls remain accessible in landscape |
 | Search recovery | Clear controls for conversation and people searches; empty search resets the filter, unread empty state returns to all conversations, and short conversation lists support pull-to-refresh |
 | Pins, mute and archive | Long-press a conversation or use its options menu to pin/unpin, mute/unmute messages, or archive/unarchive. Pinned conversations sort first. Archived chats have a separate filter and stay archived when new messages arrive. Mute suppresses message push and foreground banners (including mentions); calls still ring. Settings are private to each account and sync through MongoDB/SignalR. |
 | Pinned messages | Message options include Pin for me/Unpin for me for text and attachments. The header pin bar and Pinned messages menu open a private list with previews, jump-to-message, refresh, and unpin. Up to 100 messages per conversation; deleted or privately cleared messages are removed from pins. |
@@ -39,3 +41,4 @@ Organization endpoints (all require Firebase authentication and current conversa
 - `PUT /api/conversations/{id}/messages/{messageId}/pin` accepts `{ "pinned": true }` or `{ "pinned": false }` and is idempotent.
 
 Conversation summaries expose only the requesting user's organization fields. Shared read receipts contain user ID, conversation ID and read time, without private preferences. Archive and mute do not delete history or change unread/read state.
+

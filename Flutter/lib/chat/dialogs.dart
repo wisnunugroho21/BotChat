@@ -5,11 +5,17 @@ import 'package:uuid/uuid.dart';
 import 'api.dart';
 import 'chat_state.dart';
 import 'theme.dart';
+import 'ui.dart';
 
 Future<bool> confirm(BuildContext context, String title, String body) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        icon: const Icon(
+          Icons.info_outline,
+          color: Color(0xffdc2626),
+          size: 28,
+        ),
         title: Text(title),
         content: Text(body),
         actions: [
@@ -18,8 +24,12 @@ Future<bool> confirm(BuildContext context, String title, String body) async =>
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xffdc2626),
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
+            child: Text(title.replaceAll('?', '')),
           ),
         ],
       ),
@@ -870,6 +880,10 @@ class _MessageSearchState extends State<MessageSearch> {
   String submitted = '';
   Future<void> search({bool more = false}) async {
     if (busy) return;
+    if (!more && query.text.trim().length < 2) {
+      setState(() => error = 'Enter at least 2 characters to find messages.');
+      return;
+    }
     setState(() {
       busy = true;
       error = null;
@@ -937,15 +951,20 @@ class _MessageSearchState extends State<MessageSearch> {
         ),
         if (busy) const LinearProgressIndicator(),
         if (error != null)
-          Text(error!, style: const TextStyle(color: Colors.red)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ChatNotice(error!),
+          ),
         Expanded(
           child: results.isEmpty && !busy
-              ? Center(
-                  child: Text(
-                    submitted.length >= 2
-                        ? 'No messages found.'
-                        : 'Enter at least 2 characters to find messages.',
-                  ),
+              ? ChatEmptyState(
+                  icon: Icons.search,
+                  title: submitted.length >= 2
+                      ? 'No messages found.'
+                      : 'Find a message',
+                  description: submitted.length >= 2
+                      ? 'Try a different word or a file name.'
+                      : 'Search conversations by message text or attachment name.',
                 )
               : ListView(
                   children: [

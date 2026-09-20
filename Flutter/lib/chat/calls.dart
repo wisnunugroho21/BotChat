@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'api.dart';
 import 'chat_state.dart';
 import 'theme.dart';
+import 'ui.dart';
 
 class CallScreen extends StatefulWidget {
   const CallScreen({
@@ -534,7 +535,8 @@ class CallPresentation extends StatelessWidget {
             child: Column(
               children: [
                 if (stage == null) const Spacer(),
-                if (stage == null) ...[
+                if (stage == null &&
+                    MediaQuery.sizeOf(context).height >= 600) ...[
                   Avatar(name, group: group, radius: incoming ? 52 : 60),
                   const SizedBox(height: 24),
                 ],
@@ -714,6 +716,7 @@ class CallPresentation extends StatelessWidget {
               backgroundColor: color,
               foregroundColor: Colors.white,
               fixedSize: const Size(56, 56),
+              shape: const CircleBorder(),
             ),
             tooltip: label,
             onPressed: busy ? null : tap,
@@ -743,6 +746,7 @@ class CallHistoryScreen extends StatefulWidget {
 class _CallHistoryScreenState extends State<CallHistoryScreen> {
   List<Json>? calls;
   String? error;
+  bool missedOnly = false;
   @override
   void initState() {
     super.initState();
@@ -763,54 +767,225 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
     }
   }
 
+  String dayLabel(DateTime day) {
+    final today = DateTime.now();
+    if (DateUtils.isSameDay(day, today)) return 'Today';
+    if (DateUtils.isSameDay(day, today.subtract(const Duration(days: 1)))) {
+      return 'Yesterday';
+    }
+    return DateFormat.yMMMd().format(day);
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Call history'),
-      actions: [
-        IconButton(
-          tooltip: 'Refresh call history',
-          onPressed: load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
-    body: error != null
-        ? Center(
-            child: TextButton(onPressed: load, child: Text('$error Retry')),
-          )
-        : calls == null
-        ? const Center(child: CircularProgressIndicator())
-        : calls!.isEmpty
-        ? const Center(child: Text('No calls yet'))
-        : RefreshIndicator(
-            onRefresh: load,
-            child: ListView(
-              children: calls!.map((call) {
-                final c = widget.chat.conversations
-                    .where((c) => c['id'] == call['conversationId'])
-                    .firstOrNull;
-                return ListTile(
-                  leading: Avatar(c?.str('name') ?? call.str('callerName')),
-                  title: Text(c?.str('name') ?? call.str('callerName')),
-                  subtitle: Text(
-                    '${call['callerId'] == widget.chat.uid ? 'Outgoing' : 'Incoming'} · ${call['status']}\n${DateFormat.yMMMd().add_Hm().format(DateTime.parse(call.str('createdAt')).toLocal())}',
-                  ),
-                  isThreeLine: true,
-                  trailing: IconButton(
-                    tooltip: 'Call again',
-                    onPressed: c == null
-                        ? null
-                        : () => widget.onCall(c, call['video'] == true),
-                    icon: Icon(
-                      call['video'] == true
-                          ? Icons.videocam_outlined
-                          : Icons.phone_outlined,
-                    ),
-                  ),
-                );
-              }).toList(),
+  Widget build(BuildContext context) {
+    final visible = (calls ?? [])
+        .where(
+          (c) =>
+              !missedOnly ||
+              c['status'] == 'Missed' && c['callerId'] != widget.chat.uid,
+        )
+        .toList();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Call history'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh call history',
+            onPressed: load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('All calls'),
+                  selected: !missedOnly,
+                  onSelected: (_) => setState(() => missedOnly = false),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Missed'),
+                  selected: missedOnly,
+                  onSelected: (_) => setState(() => missedOnly = true),
+                ),
+              ],
             ),
           ),
-  );
+          Expanded(
+            child: error != null
+                ? ChatEmptyState(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Couldn’t load your calls',
+                    description: error!,
+                    action: 'Try again',
+                    onAction: load,
+                  )
+                : calls == null
+                ? const Center(child: CircularProgressIndicator())
+                : visible.isEmpty
+                ? ChatEmptyState(
+                    icon: missedOnly
+                        ? Icons.phone_missed_outlined
+                        : Icons.call_outlined,
+                    title: missedOnly ? 'No missed calls' : 'No calls yet',
+                    description: missedOnly
+                        ? 'You’re all caught up with your team.'
+                        : 'Start a voice or video call from any conversation.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: load,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                      itemCount: visible.length,
+                      itemBuilder: (_, index) {
+                        final call = visible[index];
+                        final c = widget.chat.conversations
+                            .where((c) => c['id'] == call['conversationId'])
+                            .firstOrNull;
+                        final name = c?.str('name') ?? call.str('callerName');
+                        final outgoing = call['callerId'] == widget.chat.uid;
+                        final missed = call['status'] == 'Missed' && !outgoing;
+                        final date = DateTime.parse(
+                          call.str('createdAt'),
+                        ).toLocal();
+                        final showDay =
+                            index == 0 ||
+                            !DateUtils.isSameDay(
+                              date,
+                              DateTime.parse(
+                                visible[index - 1].str('createdAt'),
+                              ).toLocal(),
+                            );
+                        final answered = DateTime.tryParse(
+                              call.str('answeredAt'),
+                            ),
+                            ended = DateTime.tryParse(call.str('endedAt'));
+                        final seconds = answered != null && ended != null
+                            ? ended
+                                  .difference(answered)
+                                  .inSeconds
+                                  .clamp(0, 86400)
+                            : null;
+                        final detail = seconds == null
+                            ? call.str('status')
+                            : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showDay)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  16,
+                                  12,
+                                  8,
+                                ),
+                                child: Text(
+                                  dayLabel(date),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: ChatColors.muted,
+                                  ),
+                                ),
+                              ),
+                            Card(
+                              elevation: 0,
+                              color: Colors.white,
+                              margin: const EdgeInsets.symmetric(vertical: 3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: const BorderSide(
+                                  color: ChatColors.border,
+                                ),
+                              ),
+                              child: ListTile(
+                                leading: Avatar(
+                                  name,
+                                  group: c?['type'] == 'Group',
+                                ),
+                                title: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: missed
+                                        ? const Color(0xffdc2626)
+                                        : ChatColors.ink,
+                                  ),
+                                ),
+                                subtitle: Row(
+                                  children: [
+                                    Icon(
+                                      missed
+                                          ? Icons.call_missed
+                                          : outgoing
+                                          ? Icons.call_made
+                                          : Icons.call_received,
+                                      size: 14,
+                                      color: missed
+                                          ? const Color(0xffdc2626)
+                                          : ChatColors.muted,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Expanded(
+                                      child: Text(
+                                        '${outgoing ? 'Outgoing' : 'Incoming'} · $detail',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat.Hm().format(date),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: ChatColors.muted,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: 40,
+                                      width: 44,
+                                      child: IconButton(
+                                        tooltip: 'Call again',
+                                        onPressed: c == null
+                                            ? null
+                                            : () => widget.onCall(
+                                                c,
+                                                call['video'] == true,
+                                              ),
+                                        icon: Icon(
+                                          call['video'] == true
+                                              ? Icons.videocam_outlined
+                                              : Icons.phone_outlined,
+                                          color: c == null
+                                              ? ChatColors.muted
+                                              : ChatColors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -6,6 +6,7 @@ import 'chat/api.dart';
 import 'chat/chat_state.dart';
 import 'chat/home.dart';
 import 'chat/theme.dart';
+import 'chat/ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +65,9 @@ class SignIn extends StatefulWidget {
 
 class _SignInState extends State<SignIn> {
   final email = TextEditingController(), password = TextEditingController();
-  bool register = false, busy = false;
+  bool register = false, busy = false, showPassword = false;
+  final form = GlobalKey<FormState>();
+  String? notice;
   String? error;
   @override
   void dispose() {
@@ -74,9 +77,11 @@ class _SignInState extends State<SignIn> {
   }
 
   Future<void> submit() async {
+    if (busy || !form.currentState!.validate()) return;
     setState(() {
       busy = true;
       error = null;
+      notice = null;
     });
     try {
       if (register) {
@@ -97,116 +102,137 @@ class _SignInState extends State<SignIn> {
     }
   }
 
+  Future<void> resetPassword() async {
+    if (busy) return;
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.text.trim())) {
+      setState(() {
+        error = 'Enter your email address to reset your password.';
+        notice = null;
+      });
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+      notice = null;
+    });
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email.text.trim(),
+      );
+      if (mounted) {
+        setState(
+          () => notice =
+              'If this account exists, a reset email will arrive shortly.',
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = Api.error(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.forum_rounded,
-                  color: ChatColors.blue,
-                  size: 56,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'TMS CONNECT',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: ChatColors.blue,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  register ? 'Create your account' : 'Welcome to Messages',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Stay connected with your team.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: ChatColors.muted),
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: password,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(labelText: 'Password'),
-                  onSubmitted: (_) {
-                    if (!busy) submit();
-                  },
-                ),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-                const SizedBox(height: 22),
-                FilledButton(
-                  onPressed: busy ? null : submit,
-                  child: Text(
-                    busy
-                        ? 'Please wait…'
-                        : register
-                        ? 'Create account'
-                        : 'Sign in',
-                  ),
-                ),
-                TextButton(
-                  onPressed: busy
-                      ? null
-                      : () => setState(() => register = !register),
-                  child: Text(
-                    register
-                        ? 'Already have an account? Sign in'
-                        : 'Create an account',
-                  ),
-                ),
-                if (!register)
-                  TextButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            try {
-                              await FirebaseAuth.instance
-                                  .sendPasswordResetEmail(
-                                    email: email.text.trim(),
-                                  );
-                              if (mounted) {
-                                setState(
-                                  () => error =
-                                      'If this account exists, a reset email will arrive shortly.',
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) setState(() => error = Api.error(e));
-                            }
-                          },
-                    child: const Text('Forgot password?'),
-                  ),
-              ],
+  Widget build(BuildContext context) => AccountSurface(
+    title: register ? 'Create your account' : 'Welcome back',
+    subtitle: register
+        ? 'Your team is one conversation away.'
+        : 'Sign in to stay connected with your team.',
+    child: Form(
+      key: form,
+      child: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: email,
+              enabled: !busy,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              validator: (value) =>
+                  RegExp(
+                    r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                  ).hasMatch(value?.trim() ?? '')
+                  ? null
+                  : 'Enter a valid email address.',
+              decoration: const InputDecoration(
+                labelText: 'Email address',
+                prefixIcon: Icon(Icons.mail_outline),
+                errorMaxLines: 2,
+              ),
             ),
-          ),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: password,
+              enabled: !busy,
+              obscureText: !showPassword,
+              enableSuggestions: false,
+              autocorrect: false,
+              textInputAction: TextInputAction.done,
+              autofillHints: [
+                register ? AutofillHints.newPassword : AutofillHints.password,
+              ],
+              validator: (value) => (value ?? '').isEmpty
+                  ? 'Enter your password.'
+                  : register && value!.length < 6
+                  ? 'Use at least 6 characters.'
+                  : null,
+              onFieldSubmitted: (_) => submit(),
+              decoration: InputDecoration(
+                labelText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                errorMaxLines: 2,
+                suffixIcon: IconButton(
+                  tooltip: showPassword ? 'Hide password' : 'Show password',
+                  onPressed: () => setState(() => showPassword = !showPassword),
+                  icon: Icon(
+                    showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            if (!register)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: busy ? null : resetPassword,
+                  child: const Text('Forgot password?'),
+                ),
+              ),
+            if (error != null) ChatNotice(error!),
+            if (notice != null) ChatNotice(notice!, success: true),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: busy ? null : submit,
+              child: busy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(register ? 'Create account' : 'Sign in'),
+            ),
+            const SizedBox(height: 14),
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => setState(() {
+                      register = !register;
+                      error = null;
+                      notice = null;
+                    }),
+              child: Text(
+                register
+                    ? 'Already have an account? Sign in'
+                    : 'New to TMS Connect? Create an account',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -222,6 +248,7 @@ class AccountLoader extends StatefulWidget {
 class _AccountLoaderState extends State<AccountLoader> {
   final api = Api();
   final name = TextEditingController(), username = TextEditingController();
+  final form = GlobalKey<FormState>();
   ChatState? chat;
   bool profileNeeded = false, busy = false;
   String? error;
@@ -232,6 +259,7 @@ class _AccountLoaderState extends State<AccountLoader> {
   }
 
   Future<void> load({bool save = false}) async {
+    if (save && !form.currentState!.validate()) return;
     setState(() {
       busy = true;
       error = null;
@@ -272,59 +300,81 @@ class _AccountLoaderState extends State<AccountLoader> {
   @override
   Widget build(BuildContext context) {
     if (chat != null) return ChatHome(chat: chat!);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TMS Connect'),
-        actions: [
-          TextButton(
-            onPressed: () => FirebaseAuth.instance.signOut(),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (profileNeeded) ...[
-                  const Text(
-                    'Complete your profile',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: name,
-                    maxLength: 80,
-                    decoration: const InputDecoration(
-                      labelText: 'Display name',
-                    ),
-                  ),
-                  TextField(
-                    controller: username,
-                    maxLength: 32,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      helperText: 'Used for @mentions. Cannot be changed.',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (error != null)
-                  Text(error!, style: const TextStyle(color: Colors.red)),
-                if (busy)
-                  const CircularProgressIndicator()
-                else
-                  FilledButton(
-                    onPressed: () => load(save: profileNeeded),
-                    child: Text(profileNeeded ? 'Start messaging' : 'Retry'),
-                  ),
-              ],
+    return AccountSurface(
+      title: profileNeeded ? 'Make it yours' : 'Opening your messages',
+      subtitle: profileNeeded
+          ? 'Help your team recognize you in every conversation.'
+          : 'Connecting to your conversations and team.',
+      child: Form(
+        key: form,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (profileNeeded) ...[
+              Center(
+                child: Avatar(
+                  name.text.isEmpty ? 'You' : name.text,
+                  radius: 32,
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: name,
+                enabled: !busy,
+                maxLength: 80,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => setState(() {}),
+                validator: (value) => (value?.trim().isEmpty ?? true)
+                    ? 'Enter your display name.'
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Display name',
+                  prefixIcon: Icon(Icons.person_outline),
+                  errorMaxLines: 2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: username,
+                enabled: !busy,
+                maxLength: 32,
+                autocorrect: false,
+                textInputAction: TextInputAction.done,
+                validator: (value) =>
+                    RegExp(
+                      r'^[a-z0-9_]{3,32}$',
+                    ).hasMatch(value?.trim().toLowerCase() ?? '')
+                    ? null
+                    : 'Use 3–32 letters, numbers or underscores.',
+                onFieldSubmitted: (_) {
+                  if (!busy) load(save: true);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  prefixText: '@',
+                  helperText: 'Your permanent name for @mentions.',
+                  helperMaxLines: 2,
+                  errorMaxLines: 2,
+                ),
+              ),
+            ],
+            if (error != null) ChatNotice(error!),
+            if (busy)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              FilledButton(
+                onPressed: () => load(save: profileNeeded),
+                child: Text(profileNeeded ? 'Start messaging' : 'Try again'),
+              ),
+            TextButton(
+              onPressed: busy ? null : () => FirebaseAuth.instance.signOut(),
+              child: const Text('Use another account'),
             ),
-          ),
+          ],
         ),
       ),
     );

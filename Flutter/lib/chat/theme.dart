@@ -18,6 +18,23 @@ ThemeData chatTheme() => ThemeData(
     surfaceTintColor: Colors.transparent,
   ),
   fontFamily: 'Roboto',
+  bottomSheetTheme: const BottomSheetThemeData(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    showDragHandle: true,
+  ),
+  snackBarTheme: SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    backgroundColor: ChatColors.ink,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(44, 44),
+      side: const BorderSide(color: ChatColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  ),
   textTheme: const TextTheme(
     bodyLarge: TextStyle(fontSize: 14, height: 1.5, color: ChatColors.ink),
     bodyMedium: TextStyle(fontSize: 14, height: 1.5, color: ChatColors.ink),
@@ -131,7 +148,11 @@ abstract final class ChatLayout {
       MediaQuery.sizeOf(context).width > 900;
   static bool phone(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= 600;
-  static double header(BuildContext context) => phone(context) ? 64 : 72;
+  static double header(BuildContext context) {
+    final base = phone(context) ? 64.0 : 72.0;
+    final scaled = MediaQuery.textScalerOf(context).scale(41) + 16;
+    return scaled > base ? scaled : base;
+  }
 }
 
 class ChatMenuLabel extends StatelessWidget {

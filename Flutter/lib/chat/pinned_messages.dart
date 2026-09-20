@@ -3,6 +3,7 @@ import 'api.dart';
 import 'chat_state.dart';
 import 'quotes.dart';
 import 'theme.dart';
+import 'ui.dart';
 
 class PinnedMessages extends StatefulWidget {
   const PinnedMessages({
@@ -93,7 +94,12 @@ class _PinnedMessagesState extends State<PinnedMessages> {
           child: loading
               ? const Center(child: CircularProgressIndicator())
               : messages.isEmpty
-              ? const Center(child: Text('No pinned messages yet'))
+              ? const ChatEmptyState(
+                  icon: Icons.push_pin_outlined,
+                  title: 'No pinned messages yet',
+                  description:
+                      'Use Pin for me in a message’s options to keep it close at hand.',
+                )
               : RefreshIndicator(
                   onRefresh: load,
                   child: ListView.builder(

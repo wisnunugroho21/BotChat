@@ -9,6 +9,7 @@ import 'thread.dart';
 import 'dialogs.dart';
 import 'push.dart';
 import 'calls.dart';
+import 'ui.dart';
 
 class ChatHome extends StatefulWidget {
   const ChatHome({
@@ -387,6 +388,8 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                     children: [
                       Text(
                         'TMS CONNECT',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
@@ -396,6 +399,8 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
                       ),
                       Text(
                         'Messages',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -530,35 +535,38 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('All'),
-                  selected: !unread && !archived,
-                  onSelected: (_) => setState(() {
-                    unread = false;
-                    archived = false;
-                  }),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Unread'),
-                  selected: unread && !archived,
-                  onSelected: (_) => setState(() {
-                    unread = true;
-                    archived = false;
-                  }),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Archived'),
-                  selected: archived,
-                  onSelected: (_) => setState(() {
-                    archived = true;
-                    unread = false;
-                  }),
-                ),
-              ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ChoiceChip(
+                    label: const Text('All'),
+                    selected: !unread && !archived,
+                    onSelected: (_) => setState(() {
+                      unread = false;
+                      archived = false;
+                    }),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Unread'),
+                    selected: unread && !archived,
+                    onSelected: (_) => setState(() {
+                      unread = true;
+                      archived = false;
+                    }),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Archived'),
+                    selected: archived,
+                    onSelected: (_) => setState(() {
+                      archived = true;
+                      unread = false;
+                    }),
+                  ),
+                ],
+              ),
             ),
           ),
           if (archived)
@@ -600,47 +608,44 @@ class _ChatHomeState extends State<ChatHome> with WidgetsBindingObserver {
             child: chat.loading
                 ? const Center(child: CircularProgressIndicator())
                 : items.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline,
-                          size: 44,
-                          color: ChatColors.muted,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          query.isNotEmpty
-                              ? 'No matching conversations'
-                              : unread
-                              ? 'You’re all caught up'
-                              : archived
-                              ? 'No archived conversations'
-                              : 'No conversations yet',
-                        ),
-                        TextButton(
-                          onPressed: query.isNotEmpty
-                              ? () {
-                                  search.clear();
-                                  setState(() {});
-                                }
-                              : unread || archived
-                              ? () => setState(() {
-                                  unread = false;
-                                  archived = false;
-                                })
-                              : newChat,
-                          child: Text(
-                            query.isNotEmpty
-                                ? 'Clear search'
-                                : unread || archived
-                                ? 'View all conversations'
-                                : 'Start a conversation',
-                          ),
-                        ),
-                      ],
-                    ),
+                ? ChatEmptyState(
+                    icon: archived
+                        ? Icons.archive_outlined
+                        : unread
+                        ? Icons.mark_chat_read_outlined
+                        : query.isNotEmpty
+                        ? Icons.search_off
+                        : Icons.chat_bubble_outline,
+                    title: query.isNotEmpty
+                        ? 'No matching conversations'
+                        : unread
+                        ? 'You’re all caught up'
+                        : archived
+                        ? 'No archived conversations'
+                        : 'No conversations yet',
+                    description: query.isNotEmpty
+                        ? 'Try another name or clear your search.'
+                        : unread
+                        ? 'New messages from your team will appear here.'
+                        : archived
+                        ? 'Archived chats stay out of your main list until you bring them back.'
+                        : 'Start a conversation to keep your team connected.',
+                    action: query.isNotEmpty
+                        ? 'Clear search'
+                        : unread || archived
+                        ? 'View all conversations'
+                        : 'Start a conversation',
+                    onAction: query.isNotEmpty
+                        ? () {
+                            search.clear();
+                            setState(() {});
+                          }
+                        : unread || archived
+                        ? () => setState(() {
+                            unread = false;
+                            archived = false;
+                          })
+                        : newChat,
                   )
                 : RefreshIndicator(
                     onRefresh: chat.refresh,
